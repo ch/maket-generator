@@ -21,6 +21,8 @@ import {
 } from './utils/exportSvg';
 import { DEMO_PHOTOS } from './data/demoContent';
 import { optimizeImageFile } from './utils/imageOptimizer';
+import { SavePresetModal } from './components/SavePresetModal';
+import { ExportModal } from './components/ExportModal';
 import {
   ZoomIn,
   ZoomOut,
@@ -32,6 +34,8 @@ import {
   Undo2,
   Redo2,
   Plus,
+  Bookmark,
+  Download,
 } from 'lucide-react';
 
 const INITIAL_SCENE_CONFIG: SceneConfig = {
@@ -138,6 +142,8 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isAddWidgetModalOpen, setIsAddWidgetModalOpen] = useState(false);
+  const [isSavePresetModalOpen, setIsSavePresetModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -727,6 +733,26 @@ export default function App() {
                 <span>100% Fit</span>
               </button>
             </div>
+
+            {/* Save Preset Button */}
+            <button
+              onClick={() => setIsSavePresetModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-neutral-200 hover:text-white bg-neutral-800/80 hover:bg-neutral-700/80 border border-neutral-700/60 rounded-lg transition active:scale-95 shadow-sm"
+              title="Зберегти поточні налаштування макета як пресет"
+            >
+              <Bookmark size={13} className="text-amber-400 shrink-0" />
+              <span className="hidden md:inline">Зберегти пресет</span>
+            </button>
+
+            {/* Export Button */}
+            <button
+              onClick={() => setIsExportModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-lg shadow-md shadow-emerald-950/30 transition active:scale-95"
+              title="Експорт макета (SVG, PNG, JPEG, буфер обміну)"
+            >
+              <Download size={13} className="stroke-[2.5] shrink-0" />
+              <span>Експорт</span>
+            </button>
           </div>
         </header>
 
@@ -805,6 +831,23 @@ export default function App() {
         isOpen={isAddWidgetModalOpen}
         onClose={() => setIsAddWidgetModalOpen(false)}
         onAddWidget={handleAddWidget}
+      />
+
+      {/* Modal Dialog for Saving Presets */}
+      <SavePresetModal
+        isOpen={isSavePresetModalOpen}
+        onClose={() => setIsSavePresetModalOpen(false)}
+        sceneConfig={sceneConfig}
+        onShowToast={showToast}
+      />
+
+      {/* Modal Dialog for Exporting */}
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        sceneConfig={sceneConfig}
+        onExport={handleExport}
+        onCopyClipboard={handleCopyClipboard}
       />
     </div>
   );
