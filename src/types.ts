@@ -16,12 +16,17 @@ export interface MockupProfile {
   caption: string;
 }
 
+export type WidgetType = 'post' | 'story' | 'quote' | 'square';
+
 export interface CardSlot {
   id: string;
   title: string;
+  widgetType?: WidgetType;
   imageUrl: string | null;
   placeholderText: string;
   transform: WidgetTransform;
+  customText?: string;
+  customAuthor?: string;
 }
 
 export type CanvasRatio = 'reference' | '1:1' | '4:5' | '5:4' | '16:9' | '9:16' | 'custom';
@@ -92,3 +97,10 @@ export interface MockupPreset {
 
 export type ExportFormat = 'png' | 'jpeg' | 'svg';
 export type ExportResolution = 1 | 2 | 3 | 4; // 1x, 2x, 4x
+
+export interface HistorySnapshot {
+  sceneConfig: SceneConfig;
+  phoneImage: string | null;
+  timestamp: number;
+  description?: string;
+}

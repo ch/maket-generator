@@ -9,7 +9,7 @@ import {
 import { SunAngleKnob } from './SunAngleKnob';
 import { WidgetRotationDial } from './WidgetRotationDial';
 import { PHONE_BASE_WIDTH, PHONE_BASE_HEIGHT } from './svg/PhoneSvg';
-import { CARD_BASE_WIDTH, CARD_BASE_HEIGHT } from './svg/PostCardSvg';
+import { CARD_BASE_WIDTH, CARD_BASE_HEIGHT, getWidgetBaseDimensions } from './svg/PostCardSvg';
 import {
   Layers,
   Sliders,
@@ -40,6 +40,8 @@ import {
   ArrowRight,
   Eye,
   Trash2,
+  Plus,
+  Quote,
 } from 'lucide-react';
 import { PresetsTab } from './PresetsTab';
 
@@ -52,6 +54,8 @@ interface SidebarControlsProps {
   selectedSlotId: string | null;
   onSelectSlot: (slotId: string) => void;
   onReorderLayer: (slotId: string, action: 'front' | 'back' | 'up' | 'down') => void;
+  onOpenAddWidgetModal: () => void;
+  onDeleteWidget: (slotId: string) => void;
   onExport: (format: 'png' | 'jpeg' | 'svg', resolution: ExportResolution) => void;
   onCopyClipboard: (resolution: ExportResolution) => void;
   onLoadDemoImages: () => void;
@@ -69,6 +73,8 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
   selectedSlotId,
   onSelectSlot,
   onReorderLayer,
+  onOpenAddWidgetModal,
+  onDeleteWidget,
   onExport,
   onCopyClipboard,
   onLoadDemoImages,
@@ -555,11 +561,12 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
 
         {/* ================= TAB: WIDGET INSPECTOR (EXACT PIXELS, LAYERS, 360° ROTATION) ================= */}
         {activeTab === 'widget' && (() => {
-          const effectiveLayerOrder = sceneConfig.layerOrder && sceneConfig.layerOrder.length === 5
-            ? sceneConfig.layerOrder
-            : ['card-1', 'card-2', 'card-3', 'card-4', 'phone'];
+          const allSlotIds = ['phone', ...cards.map((c) => c.id)];
 
-          const allSlotIds = ['phone', 'card-1', 'card-2', 'card-3', 'card-4'];
+          const effectiveLayerOrder =
+            sceneConfig.layerOrder && sceneConfig.layerOrder.length > 0
+              ? sceneConfig.layerOrder.filter((id) => allSlotIds.includes(id))
+              : allSlotIds;
 
           const getSlotDetails = (id: string) => {
             if (id === 'phone') {
@@ -576,13 +583,27 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
             }
             const idx = cards.findIndex((c) => c.id === id);
             const card = cards[idx];
+            const dims = getWidgetBaseDimensions(card?.widgetType);
+            const typeLabels: Record<string, string> = {
+              post: 'Instagram Пост',
+              story: 'Stories 9:16',
+              quote: 'Відгук / Цитата',
+              square: 'Квадрат 1:1',
+            };
+            const iconMap: Record<string, string> = {
+              post: '📄',
+              story: '📱',
+              quote: '💬',
+              square: '🖼️',
+            };
+
             return {
               id,
               title: card?.title || `Картка #${idx + 1}`,
-              category: `Картка #${idx + 1}`,
-              baseW: CARD_BASE_WIDTH,
-              baseH: CARD_BASE_HEIGHT,
-              icon: '📄',
+              category: typeLabels[card?.widgetType || 'post'] || `Картка #${idx + 1}`,
+              baseW: dims.width,
+              baseH: dims.height,
+              icon: iconMap[card?.widgetType || 'post'] || '📄',
               image: card?.imageUrl || null,
               isPhone: false,
             };
@@ -592,24 +613,43 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
           if (!selectedSlotId || !selectedTransform) {
             return (
               <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-neutral-800/40 border border-neutral-700/60 text-center space-y-1.5">
-                  <div className="w-10 h-10 mx-auto rounded-full bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
-                    <Box size={20} />
+                {/* Add Widget Button Hero */}
+                <button
+                  onClick={onOpenAddWidgetModal}
+                  className="w-full py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 transition"
+                >
+                  <Plus size={16} />
+                  <span>Додати новий віджет</span>
+                </button>
+
+                <div className="p-3.5 rounded-xl bg-neutral-800/40 border border-neutral-700/60 text-center space-y-1">
+                  <div className="w-8 h-8 mx-auto rounded-full bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                    <Box size={16} />
                   </div>
                   <h3 className="text-xs font-semibold text-white">Оберіть віджет для налаштування</h3>
                   <p className="text-[11px] text-neutral-400 max-w-[280px] mx-auto">
-                    Клікніть на будь-який віджет на холсті або виберіть зі списку нижче, щоб змінити його точні розміри в px, шар чи кут повороту.
+                    Клікніть на об'єкт на холсті або нижче для точних px розмірів, зміни шару та повороту.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 block px-1">
-                    Список віджетів на сцені
-                  </span>
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+                      Віджети на сцені ({allSlotIds.length})
+                    </span>
+                    <button
+                      onClick={onOpenAddWidgetModal}
+                      className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                    >
+                      <Plus size={11} />
+                      <span>Додати</span>
+                    </button>
+                  </div>
+
                   {allSlotIds.map((id) => {
                     const info = getSlotDetails(id);
                     const layerIndex = effectiveLayerOrder.indexOf(id);
-                    const layerNum = layerIndex + 1;
+                    const layerNum = layerIndex >= 0 ? layerIndex + 1 : 1;
 
                     return (
                       <div
@@ -617,7 +657,7 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                         onClick={() => onSelectSlot(id)}
                         className="p-2.5 rounded-xl border border-neutral-800 bg-neutral-800/40 hover:border-indigo-500/60 hover:bg-neutral-800/80 cursor-pointer transition flex items-center justify-between group"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                           <div className="w-9 h-11 rounded-lg bg-neutral-900 border border-neutral-700/80 flex items-center justify-center overflow-hidden shrink-0">
                             {info.image ? (
                               <img src={info.image} alt={info.title} className="w-full h-full object-cover" />
@@ -625,27 +665,41 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                               <span className="text-base">{info.icon}</span>
                             )}
                           </div>
-                          <div>
-                            <div className="text-xs font-semibold text-white group-hover:text-indigo-300 transition">
+                          <div className="min-w-0">
+                            <div className="text-xs font-semibold text-white group-hover:text-indigo-300 transition truncate">
                               {info.title}
                             </div>
-                            <div className="text-[10px] text-neutral-400 flex items-center gap-2">
+                            <div className="text-[10px] text-neutral-400 flex items-center gap-1.5 truncate">
                               <span>{info.category}</span>
                               <span>•</span>
-                              <span>Шар {layerNum}/5</span>
+                              <span>Шар {layerNum}/{effectiveLayerOrder.length}</span>
                             </div>
                           </div>
                         </div>
 
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectSlot(id);
-                          }}
-                          className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 group-hover:bg-indigo-600 group-hover:text-white transition"
-                        >
-                          Налаштувати
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectSlot(id);
+                            }}
+                            className="px-2 py-1 text-[11px] font-medium rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 group-hover:bg-indigo-600 group-hover:text-white transition"
+                          >
+                            Вибрати
+                          </button>
+                          {!info.isPhone && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteWidget(id);
+                              }}
+                              className="p-1.5 rounded-lg text-neutral-500 hover:text-rose-400 hover:bg-rose-950/40 transition"
+                              title="Видалити віджет"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -664,7 +718,7 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
           const currentLayerIdx = effectiveLayerOrder.indexOf(selectedSlotId);
           const isTop = currentLayerIdx === effectiveLayerOrder.length - 1;
           const isBottom = currentLayerIdx === 0;
-          const layerPosition = currentLayerIdx + 1;
+          const layerPosition = currentLayerIdx >= 0 ? currentLayerIdx + 1 : 1;
 
           const currIndexInAll = allSlotIds.indexOf(selectedSlotId);
           const prevId = allSlotIds[(currIndexInAll - 1 + allSlotIds.length) % allSlotIds.length];
@@ -675,7 +729,7 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
               {/* Top Selected Widget Hero Banner */}
               <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-950/50 via-neutral-800/60 to-neutral-800/80 border border-indigo-500/40 shadow-lg space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-10 h-12 rounded-lg bg-neutral-900 border border-indigo-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow">
                       {currentSlotInfo.image ? (
                         <img src={currentSlotInfo.image} alt="Selected" className="w-full h-full object-cover" />
@@ -683,26 +737,38 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                         <span className="text-xl">{currentSlotInfo.icon}</span>
                       )}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <h3 className="text-xs font-bold text-white tracking-tight">{currentSlotInfo.title}</h3>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+                        <h3 className="text-xs font-bold text-white tracking-tight truncate">{currentSlotInfo.title}</h3>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono shrink-0">
                           {selectedSlotId}
                         </span>
                       </div>
                       <p className="text-[11px] text-neutral-400">
-                        {currentSlotInfo.category} • Шар {layerPosition}/5
+                        {currentSlotInfo.category} • Шар {layerPosition}/{effectiveLayerOrder.length}
                       </p>
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => onSelectSlot('')}
-                    className="text-[11px] px-2 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white border border-neutral-700 transition"
-                    title="Зняти виділення"
-                  >
-                    Зняти вибір
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {!currentSlotInfo.isPhone && (
+                      <button
+                        onClick={() => onDeleteWidget(selectedSlotId)}
+                        className="text-[11px] px-2 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-200 border border-rose-800/60 flex items-center gap-1 transition"
+                        title="Видалити віджет (можна відмінити через Undo)"
+                      >
+                        <Trash2 size={12} />
+                        <span>Видалити</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onSelectSlot('')}
+                      className="text-[11px] px-2 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white border border-neutral-700 transition"
+                      title="Зняти виділення"
+                    >
+                      Зняти вибір
+                    </button>
+                  </div>
                 </div>
 
                 {/* Quick Prev / Next Widget Switcher */}
@@ -726,6 +792,50 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* Quote text editor (only for quote widgets) */}
+              {selectedCard?.widgetType === 'quote' && (
+                <div className="space-y-2.5 p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/30">
+                  <span className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
+                    <Quote size={13} />
+                    Текст та автор цитати
+                  </span>
+                  <div>
+                    <label className="text-[10px] text-neutral-400 block mb-0.5">Текст відгуку (Quote)</label>
+                    <textarea
+                      rows={2}
+                      value={selectedCard.customText || ''}
+                      onChange={(e) => {
+                        onChangeSceneConfig((prev) => ({
+                          ...prev,
+                          cards: prev.cards.map((c) =>
+                            c.id === selectedCard.id ? { ...c, customText: e.target.value } : c
+                          ),
+                        }));
+                      }}
+                      placeholder="«Неймовірна чіткість SVG та зручне керування шарами!»"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-neutral-800 border border-neutral-700 text-white resize-none focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-neutral-400 block mb-0.5">Ім'я автора</label>
+                    <input
+                      type="text"
+                      value={selectedCard.customAuthor || ''}
+                      onChange={(e) => {
+                        onChangeSceneConfig((prev) => ({
+                          ...prev,
+                          cards: prev.cards.map((c) =>
+                            c.id === selectedCard.id ? { ...c, customAuthor: e.target.value } : c
+                          ),
+                        }));
+                      }}
+                      placeholder="Олена Ковальчук"
+                      className="w-full px-2.5 py-1 text-xs rounded-lg bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* 1. EXACT PIXEL DIMENSIONS (Width px & Height px with locked proportions) */}
               <div className="space-y-3 p-3.5 rounded-xl bg-neutral-800/50 border border-neutral-700/70">
@@ -863,9 +973,19 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                     <Layers size={13} className="text-indigo-400" />
                     Порядок шарів (Z-Index)
                   </span>
-                  <span className="text-[10px] text-amber-400 font-mono bg-amber-950/40 px-2 py-0.5 rounded border border-amber-500/20">
-                    Шар {layerPosition} з 5 {isTop ? '• Верхній' : isBottom ? '• Нижній' : ''}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={onOpenAddWidgetModal}
+                      className="text-[10px] text-indigo-300 hover:text-white flex items-center gap-1 bg-indigo-600/30 hover:bg-indigo-600/50 px-2 py-0.5 rounded border border-indigo-500/30 transition"
+                      title="Додати новий віджет на сцену"
+                    >
+                      <Plus size={11} />
+                      <span>+ Додати</span>
+                    </button>
+                    <span className="text-[10px] text-amber-400 font-mono bg-amber-950/40 px-2 py-0.5 rounded border border-amber-500/20">
+                      Шар {layerPosition} з {effectiveLayerOrder.length} {isTop ? '• Верхній' : isBottom ? '• Нижній' : ''}
+                    </span>
+                  </div>
                 </div>
 
                 {/* 4 Quick Layer Reorder Action Buttons */}
@@ -919,7 +1039,7 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                   <div className="space-y-1">
                     {[...effectiveLayerOrder].reverse().map((layerId, reverseIdx) => {
                       const isThisSelected = layerId === selectedSlotId;
-                      const itemNum = 5 - reverseIdx;
+                      const itemNum = effectiveLayerOrder.length - reverseIdx;
                       const layerInfo = getSlotDetails(layerId);
 
                       return (
@@ -932,21 +1052,33 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                               : 'bg-neutral-800/40 border-neutral-700/60 text-neutral-400 hover:text-neutral-200 hover:border-neutral-600'
                           }`}
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-mono opacity-60 w-3 text-center">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[10px] font-mono opacity-60 w-3 text-center shrink-0">
                               {itemNum}
                             </span>
-                            <span className="text-xs">{layerInfo.icon}</span>
-                            <span className="truncate max-w-[170px]">{layerInfo.title}</span>
+                            <span className="text-xs shrink-0">{layerInfo.icon}</span>
+                            <span className="truncate max-w-[150px]">{layerInfo.title}</span>
                           </div>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 shrink-0">
                             {isThisSelected ? (
                               <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-600 text-white font-semibold">
                                 Вибрано
                               </span>
                             ) : (
                               <span className="text-[10px] opacity-50">Шар {itemNum}</span>
+                            )}
+                            {layerId !== 'phone' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteWidget(layerId);
+                                }}
+                                className="p-1 rounded text-neutral-500 hover:text-rose-400 hover:bg-rose-950/40 transition"
+                                title="Видалити цей віджет"
+                              >
+                                <Trash2 size={12} />
+                              </button>
                             )}
                           </div>
                         </div>

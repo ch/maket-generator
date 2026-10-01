@@ -5,9 +5,14 @@ import {
   ExportResolution,
   CanvasRatio,
   CANVAS_RATIO_PRESETS,
+  WidgetType,
+  CardSlot,
 } from './types';
 import { MockupSceneSvg } from './components/MockupSceneSvg';
 import { SidebarControls } from './components/SidebarControls';
+import { AddWidgetModal } from './components/AddWidgetModal';
+import { useHistoryState } from './hooks/useHistoryState';
+import { getWidgetBaseDimensions } from './components/svg/PostCardSvg';
 import {
   exportAsSvg,
   exportAsRasterImage,
@@ -23,6 +28,9 @@ import {
   AlertCircle,
   Sun,
   LayoutTemplate,
+  Undo2,
+  Redo2,
+  Plus,
 } from 'lucide-react';
 
 const INITIAL_SCENE_CONFIG: SceneConfig = {
@@ -107,12 +115,26 @@ const INITIAL_SCENE_CONFIG: SceneConfig = {
 };
 
 export default function App() {
-  const [sceneConfig, setSceneConfig] = useState<SceneConfig>(INITIAL_SCENE_CONFIG);
-  const [phoneImage, setPhoneImage] = useState<string | null>(null);
+  const {
+    sceneConfig,
+    setSceneConfig,
+    commitSnapshot,
+    phoneImage,
+    setPhoneImage,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    historyIndex,
+    historyTotal,
+    isRestoredFromSave,
+  } = useHistoryState(INITIAL_SCENE_CONFIG, null);
+
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [isAddWidgetModalOpen, setIsAddWidgetModalOpen] = useState(false);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -144,6 +166,41 @@ export default function App() {
       window.removeEventListener('resize', updateSize);
     };
   }, []);
+
+  // Keyboard shortcuts for Undo (Ctrl+Z) & Redo (Ctrl+Y or Ctrl+Shift+Z)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isInput =
+        document.activeElement instanceof HTMLInputElement ||
+        document.activeElement instanceof HTMLTextAreaElement;
+      if (isInput) return;
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+      if (cmdOrCtrl && !e.altKey) {
+        // Redo: Ctrl+Y or Ctrl+Shift+Z
+        if (e.key === 'y' || e.key === 'Y' || (e.shiftKey && (e.key === 'z' || e.key === 'Z'))) {
+          e.preventDefault();
+          if (canRedo) {
+            redo();
+            showToast('Повторено дію');
+          }
+        }
+        // Undo: Ctrl+Z
+        else if (e.key === 'z' || e.key === 'Z') {
+          e.preventDefault();
+          if (canUndo) {
+            undo();
+            showToast('Скасовано дію');
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, canUndo, canRedo]);
 
   // Compute 100% full-screen fit size for canvas
   const padding = 20; // 20px padding from screen edges
@@ -182,147 +239,225 @@ export default function App() {
     }
   };
 
+  const handleCanvasDragEnd = () => {
+    commitSnapshot(sceneConfig, phoneImage, 'Переміщення / поворот віджета');
+  };
+
+  const handleAddWidget = (title: string, widgetType: WidgetType) => {
+    const newId = `widget-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+    const baseDims = getWidgetBaseDimensions(widgetType);
+
+    const offsetIndex = sceneConfig.cards.length % 5;
+    const spawnX = Math.round(sceneConfig.width / 2 - baseDims.width / 2 + (offsetIndex - 2) * 45);
+    const spawnY = Math.round(sceneConfig.height / 2 - baseDims.height / 2 + (offsetIndex - 2) * 35);
+
+    const defaultTitle =
+      widgetType === 'post'
+        ? 'Instagram Пост'
+        : widgetType === 'story'
+        ? 'Stories 9:16'
+        : widgetType === 'quote'
+        ? 'Відгук клієнта'
+        : 'Квадратне фото';
+
+    const newCard: CardSlot = {
+      id: newId,
+      title: title.trim() || `${defaultTitle} #${sceneConfig.cards.length + 1}`,
+      widgetType,
+      imageUrl: null,
+      placeholderText: 'PLACEHOLDER - INSERT YOUR DESIGN OR IMAGE',
+      customText:
+        widgetType === 'quote'
+          ? '«Неймовірна увага до деталей та бездоганний естетичний стиль бренду!»'
+          : undefined,
+      customAuthor: widgetType === 'quote' ? 'Олена Ковальчук' : undefined,
+      transform: {
+        x: Math.max(40, spawnX),
+        y: Math.max(40, spawnY),
+        scale: 1.0,
+        rotation: 0,
+      },
+    };
+
+    const nextConfig: SceneConfig = {
+      ...sceneConfig,
+      cards: [...sceneConfig.cards, newCard],
+      layerOrder: [...sceneConfig.layerOrder, newId],
+    };
+
+    setSceneConfig(nextConfig);
+    commitSnapshot(nextConfig, phoneImage, `Додано віджет: ${newCard.title}`);
+    setSelectedSlotId(newId);
+    showToast(`Віджет «${newCard.title}» додано!`);
+  };
+
+  const handleDeleteWidget = (slotId: string) => {
+    if (slotId === 'phone') {
+      showToast('Телефон є головним елементом макета і не видаляється', 'error');
+      return;
+    }
+    const cardToDelete = sceneConfig.cards.find((c) => c.id === slotId);
+    const cardTitle = cardToDelete?.title || 'Віджет';
+
+    const nextConfig: SceneConfig = {
+      ...sceneConfig,
+      cards: sceneConfig.cards.filter((c) => c.id !== slotId),
+      layerOrder: sceneConfig.layerOrder.filter((id) => id !== slotId),
+    };
+
+    setSceneConfig(nextConfig);
+    commitSnapshot(nextConfig, phoneImage, `Видалено: ${cardTitle}`);
+    if (selectedSlotId === slotId) {
+      setSelectedSlotId(null);
+    }
+    showToast(`Віджет «${cardTitle}» видалено!`);
+  };
+
   const handleUpdateCardImage = (cardId: string, url: string | null) => {
-    setSceneConfig((prev) => ({
-      ...prev,
-      cards: prev.cards.map((c) => (c.id === cardId ? { ...c, imageUrl: url } : c)),
-    }));
+    const nextConfig = {
+      ...sceneConfig,
+      cards: sceneConfig.cards.map((c) => (c.id === cardId ? { ...c, imageUrl: url } : c)),
+    };
+    setSceneConfig(nextConfig);
+    commitSnapshot(nextConfig, phoneImage, 'Оновлено зображення картки');
   };
 
   const handleResetTransforms = () => {
-    setSceneConfig((prev) => ({
-      ...prev,
+    const nextConfig: SceneConfig = {
+      ...sceneConfig,
       phoneTransform: { ...INITIAL_SCENE_CONFIG.phoneTransform },
-      cards: prev.cards.map((card, idx) => ({
+      cards: sceneConfig.cards.map((card, idx) => ({
         ...card,
-        transform: { ...INITIAL_SCENE_CONFIG.cards[idx].transform },
+        transform: INITIAL_SCENE_CONFIG.cards[idx]
+          ? { ...INITIAL_SCENE_CONFIG.cards[idx].transform }
+          : { ...card.transform, rotation: 0, scale: 1.0 },
       })),
-      layerOrder: ['card-1', 'card-2', 'card-3', 'card-4', 'phone'],
-    }));
+      layerOrder: ['card-1', 'card-2', 'card-3', 'card-4', 'phone'].filter(
+        (id) => id === 'phone' || sceneConfig.cards.some((c) => c.id === id)
+      ),
+    };
+    setSceneConfig(nextConfig);
+    commitSnapshot(nextConfig, phoneImage, 'Скидання трансформацій');
     showToast('Позиції та кути повернено до еталонних!');
   };
 
   const handleReorderLayer = (slotId: string, action: 'front' | 'back' | 'up' | 'down') => {
-    setSceneConfig((prev) => {
-      const currentOrder = prev.layerOrder && prev.layerOrder.length === 5
-        ? [...prev.layerOrder]
-        : ['card-1', 'card-2', 'card-3', 'card-4', 'phone'];
-      const index = currentOrder.indexOf(slotId);
-      if (index === -1) return prev;
+    const allSlotIds = ['phone', ...sceneConfig.cards.map((c) => c.id)];
+    const currentOrder =
+      sceneConfig.layerOrder && sceneConfig.layerOrder.length > 0
+        ? [...sceneConfig.layerOrder]
+        : allSlotIds;
 
-      const newOrder = [...currentOrder];
-      if (action === 'front') {
-        newOrder.splice(index, 1);
-        newOrder.push(slotId);
-      } else if (action === 'back') {
-        newOrder.splice(index, 1);
-        newOrder.unshift(slotId);
-      } else if (action === 'up') {
-        if (index < newOrder.length - 1) {
-          const temp = newOrder[index];
-          newOrder[index] = newOrder[index + 1];
-          newOrder[index + 1] = temp;
-        }
-      } else if (action === 'down') {
-        if (index > 0) {
-          const temp = newOrder[index];
-          newOrder[index] = newOrder[index - 1];
-          newOrder[index - 1] = temp;
-        }
+    const index = currentOrder.indexOf(slotId);
+    if (index === -1) return;
+
+    const newOrder = [...currentOrder];
+    if (action === 'front') {
+      newOrder.splice(index, 1);
+      newOrder.push(slotId);
+    } else if (action === 'back') {
+      newOrder.splice(index, 1);
+      newOrder.unshift(slotId);
+    } else if (action === 'up') {
+      if (index < newOrder.length - 1) {
+        const temp = newOrder[index];
+        newOrder[index] = newOrder[index + 1];
+        newOrder[index + 1] = temp;
       }
+    } else if (action === 'down') {
+      if (index > 0) {
+        const temp = newOrder[index];
+        newOrder[index] = newOrder[index - 1];
+        newOrder[index - 1] = temp;
+      }
+    }
 
-      return {
-        ...prev,
-        layerOrder: newOrder,
-      };
-    });
+    const nextConfig: SceneConfig = {
+      ...sceneConfig,
+      layerOrder: newOrder,
+    };
+    setSceneConfig(nextConfig);
+    commitSnapshot(nextConfig, phoneImage, 'Зміна порядку шарів');
   };
 
   const handleSetCanvasRatio = (ratio: CanvasRatio) => {
     const preset = CANVAS_RATIO_PRESETS[ratio];
     if (!preset) return;
 
-    setSceneConfig((prev) => {
-      // Calculate responsive layout adaptation based on ratio
-      let phoneT = { ...prev.phoneTransform };
-      let c1T = { ...prev.cards[0].transform };
-      let c2T = { ...prev.cards[1].transform };
-      let c3T = { ...prev.cards[2].transform };
-      let c4T = { ...prev.cards[3].transform };
+    let phoneT = { ...sceneConfig.phoneTransform };
+    let cardsT = sceneConfig.cards.map((c) => ({ ...c }));
 
-      if (ratio === '1:1') {
-        phoneT = { x: 180, y: 360, scale: 0.95, rotation: 0 };
-        c1T = { x: 550, y: 310, scale: 0.95, rotation: 0 };
-        c2T = { x: 1040, y: 300, scale: 0.95, rotation: 0 };
-        c3T = { x: 720, y: 560, scale: 0.95, rotation: -7 };
-        c4T = { x: 940, y: 640, scale: 0.95, rotation: 5 };
-      } else if (ratio === '4:5') {
-        phoneT = { x: 110, y: 410, scale: 0.9, rotation: 0 };
-        c1T = { x: 470, y: 360, scale: 0.9, rotation: 0 };
-        c2T = { x: 890, y: 350, scale: 0.9, rotation: 0 };
-        c3T = { x: 620, y: 610, scale: 0.9, rotation: -7 };
-        c4T = { x: 810, y: 700, scale: 0.9, rotation: 5 };
-      } else if (ratio === '5:4') {
-        phoneT = { x: 200, y: 250, scale: 1.0, rotation: 0 };
-        c1T = { x: 580, y: 210, scale: 1.0, rotation: 0 };
-        c2T = { x: 1100, y: 200, scale: 1.0, rotation: 0 };
-        c3T = { x: 750, y: 460, scale: 1.0, rotation: -7 };
-        c4T = { x: 970, y: 540, scale: 1.0, rotation: 5 };
-      } else if (ratio === '16:9') {
-        phoneT = { x: 220, y: 105, scale: 0.95, rotation: 0 };
-        c1T = { x: 600, y: 80, scale: 0.95, rotation: 0 };
-        c2T = { x: 1140, y: 75, scale: 0.95, rotation: 0 };
-        c3T = { x: 770, y: 320, scale: 0.95, rotation: -7 };
-        c4T = { x: 990, y: 390, scale: 0.95, rotation: 5 };
-      } else if (ratio === '9:16') {
-        phoneT = { x: 370, y: 190, scale: 0.95, rotation: 0 };
-        c1T = { x: 130, y: 920, scale: 0.88, rotation: -3 };
-        c2T = { x: 610, y: 920, scale: 0.88, rotation: 3 };
-        c3T = { x: 190, y: 1300, scale: 0.88, rotation: -6 };
-        c4T = { x: 570, y: 1330, scale: 0.88, rotation: 5 };
-      } else {
-        // reference 1600x1100
-        phoneT = { ...INITIAL_SCENE_CONFIG.phoneTransform };
-        c1T = { ...INITIAL_SCENE_CONFIG.cards[0].transform };
-        c2T = { ...INITIAL_SCENE_CONFIG.cards[1].transform };
-        c3T = { ...INITIAL_SCENE_CONFIG.cards[2].transform };
-        c4T = { ...INITIAL_SCENE_CONFIG.cards[3].transform };
-      }
+    if (ratio === '1:1') {
+      phoneT = { x: 180, y: 360, scale: 0.95, rotation: 0 };
+      if (cardsT[0]) cardsT[0].transform = { x: 550, y: 310, scale: 0.95, rotation: 0 };
+      if (cardsT[1]) cardsT[1].transform = { x: 1040, y: 300, scale: 0.95, rotation: 0 };
+      if (cardsT[2]) cardsT[2].transform = { x: 720, y: 560, scale: 0.95, rotation: -7 };
+      if (cardsT[3]) cardsT[3].transform = { x: 940, y: 640, scale: 0.95, rotation: 5 };
+    } else if (ratio === '4:5') {
+      phoneT = { x: 110, y: 410, scale: 0.9, rotation: 0 };
+      if (cardsT[0]) cardsT[0].transform = { x: 470, y: 360, scale: 0.9, rotation: 0 };
+      if (cardsT[1]) cardsT[1].transform = { x: 890, y: 350, scale: 0.9, rotation: 0 };
+      if (cardsT[2]) cardsT[2].transform = { x: 620, y: 610, scale: 0.9, rotation: -7 };
+      if (cardsT[3]) cardsT[3].transform = { x: 810, y: 700, scale: 0.9, rotation: 5 };
+    } else if (ratio === '5:4') {
+      phoneT = { x: 200, y: 250, scale: 1.0, rotation: 0 };
+      if (cardsT[0]) cardsT[0].transform = { x: 580, y: 210, scale: 1.0, rotation: 0 };
+      if (cardsT[1]) cardsT[1].transform = { x: 1100, y: 200, scale: 1.0, rotation: 0 };
+      if (cardsT[2]) cardsT[2].transform = { x: 750, y: 460, scale: 1.0, rotation: -7 };
+      if (cardsT[3]) cardsT[3].transform = { x: 970, y: 540, scale: 1.0, rotation: 5 };
+    } else if (ratio === '16:9') {
+      phoneT = { x: 220, y: 105, scale: 0.95, rotation: 0 };
+      if (cardsT[0]) cardsT[0].transform = { x: 600, y: 80, scale: 0.95, rotation: 0 };
+      if (cardsT[1]) cardsT[1].transform = { x: 1140, y: 75, scale: 0.95, rotation: 0 };
+      if (cardsT[2]) cardsT[2].transform = { x: 770, y: 320, scale: 0.95, rotation: -7 };
+      if (cardsT[3]) cardsT[3].transform = { x: 990, y: 390, scale: 0.95, rotation: 5 };
+    } else if (ratio === '9:16') {
+      phoneT = { x: 370, y: 190, scale: 0.95, rotation: 0 };
+      if (cardsT[0]) cardsT[0].transform = { x: 130, y: 920, scale: 0.88, rotation: -3 };
+      if (cardsT[1]) cardsT[1].transform = { x: 610, y: 920, scale: 0.88, rotation: 3 };
+      if (cardsT[2]) cardsT[2].transform = { x: 190, y: 1300, scale: 0.88, rotation: -6 };
+      if (cardsT[3]) cardsT[3].transform = { x: 570, y: 1330, scale: 0.88, rotation: 5 };
+    } else {
+      phoneT = { ...INITIAL_SCENE_CONFIG.phoneTransform };
+      if (cardsT[0]) cardsT[0].transform = { ...INITIAL_SCENE_CONFIG.cards[0].transform };
+      if (cardsT[1]) cardsT[1].transform = { ...INITIAL_SCENE_CONFIG.cards[1].transform };
+      if (cardsT[2]) cardsT[2].transform = { ...INITIAL_SCENE_CONFIG.cards[2].transform };
+      if (cardsT[3]) cardsT[3].transform = { ...INITIAL_SCENE_CONFIG.cards[3].transform };
+    }
 
-      return {
-        ...prev,
-        canvasRatio: ratio,
-        width: preset.width,
-        height: preset.height,
-        phoneTransform: phoneT,
-        cards: [
-          { ...prev.cards[0], transform: c1T },
-          { ...prev.cards[1], transform: c2T },
-          { ...prev.cards[2], transform: c3T },
-          { ...prev.cards[3], transform: c4T },
-        ],
-      };
-    });
+    const nextConfig: SceneConfig = {
+      ...sceneConfig,
+      canvasRatio: ratio,
+      width: preset.width,
+      height: preset.height,
+      phoneTransform: phoneT,
+      cards: cardsT,
+    };
 
+    setSceneConfig(nextConfig);
+    commitSnapshot(nextConfig, phoneImage, `Зміна формату: ${preset.ratioDisplay}`);
     showToast(`Холст змінено на ${preset.ratioDisplay} (${preset.width}×${preset.height} px)`);
   };
 
   const handleLoadDemoImages = () => {
-    setPhoneImage(DEMO_PHOTOS.phone);
-    setSceneConfig((prev) => ({
-      ...prev,
+    const newPhoneImg = DEMO_PHOTOS.phone;
+    const nextConfig: SceneConfig = {
+      ...sceneConfig,
       profile: {
-        ...prev.profile,
+        ...sceneConfig.profile,
         avatarUrl: DEMO_PHOTOS.avatar,
       },
-      cards: prev.cards.map((card, idx) => {
-        const photoKey = `card${idx + 1}` as keyof typeof DEMO_PHOTOS;
+      cards: sceneConfig.cards.map((card, idx) => {
+        const photoKey = `card${(idx % 4) + 1}` as keyof typeof DEMO_PHOTOS;
         return {
           ...card,
           imageUrl: DEMO_PHOTOS[photoKey] || null,
         };
       }),
-    }));
+    };
+    setPhoneImage(newPhoneImg);
+    setSceneConfig(nextConfig);
+    commitSnapshot(nextConfig, newPhoneImg, 'Завантажено демонстраційні фото');
     showToast('Завантажено зразки стильних фотографій!');
   };
 
@@ -388,55 +523,112 @@ export default function App() {
       {/* Main Canvas Workspace */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Top Floating App Bar */}
-        <header className="h-14 border-b border-neutral-800/80 bg-neutral-900/60 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between z-10 shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center gap-1.5">
+        <header className="h-14 border-b border-neutral-800/80 bg-neutral-900/70 backdrop-blur-md px-3 sm:px-5 flex items-center justify-between z-10 shrink-0 gap-2">
+          {/* Left: Format & Sun Badges */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center gap-1.5 hidden sm:inline-flex">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              SVG Vector Mode
+              SVG Vector
             </span>
-            <span className="text-xs text-neutral-400 flex items-center gap-1.5">
+            <span className="text-xs text-neutral-400 flex items-center gap-1.5 bg-neutral-800/60 px-2.5 py-1 rounded-lg border border-neutral-700/50">
               <LayoutTemplate size={13} className="text-neutral-500" />
               <strong className="text-neutral-300">
                 {CANVAS_RATIO_PRESETS[sceneConfig.canvasRatio]?.ratioDisplay || 'Custom'}
               </strong>{' '}
-              ({sceneConfig.width} × {sceneConfig.height} px)
+              <span className="text-neutral-500 hidden md:inline">
+                ({sceneConfig.width} × {sceneConfig.height} px)
+              </span>
             </span>
             {sceneConfig.shadowEnabled && (
-              <span className="text-xs text-amber-400/90 hidden md:flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+              <span className="text-xs text-amber-400/90 hidden lg:flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                 <Sun size={12} />
                 <span>Сонце: {sceneConfig.lightAngle}°</span>
               </span>
             )}
           </div>
 
-          {/* Quick Zoom & Reset controls */}
-          <div className="flex items-center gap-1.5 bg-neutral-800/80 p-1 rounded-lg border border-neutral-700/60">
-            <button
-              onClick={() => setZoomLevel((z) => Math.max(0.4, Number((z - 0.1).toFixed(2))))}
-              className="p-1.5 text-neutral-400 hover:text-white rounded hover:bg-neutral-700/60 transition"
-              title="Зменшити"
-            >
-              <ZoomOut size={15} />
-            </button>
-            <span className="text-xs font-mono px-1.5 text-neutral-300 min-w-[42px] text-center">
-              {Math.round(zoomLevel * 100)}%
+          {/* Center: History Undo/Redo & Auto-save Status */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-700/60">
+              <button
+                onClick={undo}
+                disabled={!canUndo}
+                className={`p-1.5 rounded transition flex items-center gap-1 ${
+                  canUndo
+                    ? 'text-neutral-200 hover:text-white hover:bg-neutral-700/70 cursor-pointer'
+                    : 'text-neutral-600 cursor-not-allowed opacity-40'
+                }`}
+                title="Скасувати (Ctrl+Z)"
+              >
+                <Undo2 size={15} />
+              </button>
+              <div className="w-[1px] h-3.5 bg-neutral-700 mx-0.5" />
+              <button
+                onClick={redo}
+                disabled={!canRedo}
+                className={`p-1.5 rounded transition flex items-center gap-1 ${
+                  canRedo
+                    ? 'text-neutral-200 hover:text-white hover:bg-neutral-700/70 cursor-pointer'
+                    : 'text-neutral-600 cursor-not-allowed opacity-40'
+                }`}
+                title="Повторити (Ctrl+Y або Ctrl+Shift+Z)"
+              >
+                <Redo2 size={15} />
+              </button>
+            </div>
+
+            {/* Step Counter Badge */}
+            <span className="text-[11px] font-mono text-neutral-400 bg-neutral-800/60 px-2 py-1 rounded border border-neutral-700/40 hidden sm:inline-block">
+              Крок {historyIndex + 1}/{historyTotal}
             </span>
+
+            {/* Auto-saved Live Indicator */}
+            <div className="hidden md:flex items-center gap-1.5 text-[11px] text-emerald-400/90 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{isRestoredFromSave ? 'Збережено' : 'Автозбережено'}</span>
+            </div>
+          </div>
+
+          {/* Right: + Add Widget & Zoom controls */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => setZoomLevel((z) => Math.min(2.5, Number((z + 0.1).toFixed(2))))}
-              className="p-1.5 text-neutral-400 hover:text-white rounded hover:bg-neutral-700/60 transition"
-              title="Збільшити"
+              onClick={() => setIsAddWidgetModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-md shadow-indigo-600/20 transition active:scale-95"
+              title="Додати новий віджет (Instagram пост, Stories, відгук, фото)"
             >
-              <ZoomIn size={15} />
+              <Plus size={14} className="stroke-[2.5]" />
+              <span className="hidden sm:inline">Віджет</span>
             </button>
-            <div className="w-[1px] h-4 bg-neutral-700 mx-1" />
-            <button
-              onClick={() => setZoomLevel(1)}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-neutral-300 hover:text-white rounded hover:bg-neutral-700/60 transition font-medium"
-              title="Масштабувати на весь екран (100% Fit)"
-            >
-              <Maximize size={13} className="text-indigo-400" />
-              <span>На весь екран</span>
-            </button>
+
+            {/* Quick Zoom & Reset controls */}
+            <div className="flex items-center gap-1 bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-700/60">
+              <button
+                onClick={() => setZoomLevel((z) => Math.max(0.4, Number((z - 0.1).toFixed(2))))}
+                className="p-1.5 text-neutral-400 hover:text-white rounded hover:bg-neutral-700/60 transition"
+                title="Зменшити"
+              >
+                <ZoomOut size={14} />
+              </button>
+              <span className="text-xs font-mono px-1 text-neutral-300 min-w-[36px] text-center">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <button
+                onClick={() => setZoomLevel((z) => Math.min(2.5, Number((z + 0.1).toFixed(2))))}
+                className="p-1.5 text-neutral-400 hover:text-white rounded hover:bg-neutral-700/60 transition"
+                title="Збільшити"
+              >
+                <ZoomIn size={14} />
+              </button>
+              <div className="w-[1px] h-3.5 bg-neutral-700 mx-0.5 hidden sm:block" />
+              <button
+                onClick={() => setZoomLevel(1)}
+                className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs text-neutral-300 hover:text-white rounded hover:bg-neutral-700/60 transition font-medium"
+                title="Масштабувати на весь екран (100% Fit)"
+              >
+                <Maximize size={12} className="text-indigo-400" />
+                <span>100% Fit</span>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -468,6 +660,7 @@ export default function App() {
               svgRef={svgRef}
               sceneConfig={sceneConfig}
               onUpdateTransform={handleUpdateTransform}
+              onDragEnd={handleCanvasDragEnd}
               onSelectSlot={setSelectedSlotId}
               selectedSlotId={selectedSlotId}
               phoneImage={phoneImage}
@@ -495,6 +688,8 @@ export default function App() {
           selectedSlotId={selectedSlotId}
           onSelectSlot={setSelectedSlotId}
           onReorderLayer={handleReorderLayer}
+          onOpenAddWidgetModal={() => setIsAddWidgetModalOpen(true)}
+          onDeleteWidget={handleDeleteWidget}
           onExport={handleExport}
           onCopyClipboard={handleCopyClipboard}
           onLoadDemoImages={handleLoadDemoImages}
@@ -503,6 +698,13 @@ export default function App() {
           onShowToast={showToast}
         />
       </aside>
+
+      {/* Modal Dialog for Adding New Widgets */}
+      <AddWidgetModal
+        isOpen={isAddWidgetModalOpen}
+        onClose={() => setIsAddWidgetModalOpen(false)}
+        onAddWidget={handleAddWidget}
+      />
     </div>
   );
 }

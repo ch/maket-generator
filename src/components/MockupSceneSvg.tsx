@@ -7,6 +7,7 @@ interface MockupSceneSvgProps {
   sceneConfig: SceneConfig;
   onUpdateTransform: (slotId: string, transform: WidgetTransform) => void;
   onSelectSlot: (slotId: string) => void;
+  onDragEnd?: () => void;
   selectedSlotId: string | null;
   phoneImage: string | null;
   svgRef?: React.RefObject<SVGSVGElement | null>;
@@ -16,6 +17,7 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
   sceneConfig,
   onUpdateTransform,
   onSelectSlot,
+  onDragEnd,
   selectedSlotId,
   phoneImage,
   svgRef: externalSvgRef,
@@ -146,6 +148,9 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
   };
 
   const handlePointerUp = () => {
+    if (draggingSlot) {
+      onDragEnd?.();
+    }
     setDraggingSlot(null);
     setDragStart(null);
   };
@@ -276,6 +281,9 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
               profile={profile}
               imageUrl={card.imageUrl}
               placeholderText={card.placeholderText}
+              widgetType={card.widgetType}
+              customText={card.customText}
+              customAuthor={card.customAuthor}
               onSelectSlot={() => onSelectSlot(card.id)}
               filterId={cardFilterId}
               isSelected={selectedSlotId === card.id}
