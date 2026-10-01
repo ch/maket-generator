@@ -89,7 +89,7 @@
 
 ```bash
 # 1. Clone the repository
-git clone git@github.com-ptitkov:ch/maket-generator.git
+git clone git@github.com:ch/maket-generator.git
 cd maket-generator
 
 # 2. Install dependencies
