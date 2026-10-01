@@ -2,6 +2,9 @@
 
 > Interactive vector mockup studio for creating and exporting realistic social media scenes with iPhone mockups and floating aesthetic cards with dynamic 360° lighting and shadows.
 
+🌐 **Live Demo:** [https://ch.github.io/maket-generator/](https://ch.github.io/maket-generator/)
+
+[![Live Demo](https://img.shields.io/badge/Demo-Live%20on%20GitHub%20Pages-2ea44f?style=for-the-badge&logo=github)](https://ch.github.io/maket-generator/)
 [![Deploy to GitHub Pages](https://github.com/ch/maket-generator/actions/workflows/deploy.yml/badge.svg)](https://github.com/ch/maket-generator/actions/workflows/deploy.yml)
 [![Vite](https://img.shields.io/badge/Vite-8.3.1-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-19.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
@@ -16,6 +19,8 @@
 ---
 
 ## 🇬🇧 English Version
+
+🔗 **Live Demo:** [https://ch.github.io/maket-generator/](https://ch.github.io/maket-generator/)
 
 ### ✨ Features
 
@@ -136,6 +141,8 @@ Because this project is a 100% static Single Page Application (SPA), deployment 
 ---
 
 ## 🇺🇦 Українська версія
+
+🔗 **Демо онлайн (GitHub Pages):** [https://ch.github.io/maket-generator/](https://ch.github.io/maket-generator/)
 
 ### ✨ Можливості та функції
 
