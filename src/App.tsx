@@ -135,6 +135,8 @@ export default function App() {
     historyIndex,
     historyTotal,
     isRestoredFromSave,
+    hasUnsavedChanges,
+    flushPending,
   } = useHistoryState(INITIAL_SCENE_CONFIG, null);
 
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
@@ -211,10 +213,11 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, canUndo, canRedo]);
 
-  // Warn user before leaving or reloading page if there are active edits
+  // Warn user before leaving or reloading page ONLY if there are active unsaved edits in flight
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (historyTotal > 1 || historyIndex > 0) {
+      if (hasUnsavedChanges) {
+        flushPending();
         e.preventDefault();
         e.returnValue = '';
         return '';
@@ -225,7 +228,7 @@ export default function App() {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [historyTotal, historyIndex]);
+  }, [hasUnsavedChanges, flushPending]);
 
   // Compute 100% full-screen fit size for canvas
   const padding = 20; // 20px padding from screen edges
@@ -685,11 +688,29 @@ export default function App() {
 
             {/* Auto-saved Live Indicator */}
             <div
-              className="hidden md:flex items-center gap-1.5 text-[11px] text-emerald-400/90 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20"
-              title="Історія та фотографії автоматично зберігаються в IndexedDB (без обмеження 5 МБ)"
+              className={`hidden md:flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded border transition-colors ${
+                hasUnsavedChanges
+                  ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+                  : 'text-emerald-400/90 bg-emerald-500/10 border-emerald-500/20'
+              }`}
+              title={
+                hasUnsavedChanges
+                  ? 'Збереження змін в IndexedDB...'
+                  : 'Історія та фотографії збережені в IndexedDB (без обмеження 5 МБ)'
+              }
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{isRestoredFromSave ? 'Збережено в IndexedDB' : 'Автозбережено'}</span>
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  hasUnsavedChanges ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'
+                }`}
+              />
+              <span>
+                {hasUnsavedChanges
+                  ? 'Збереження...'
+                  : isRestoredFromSave
+                  ? 'Збережено в IndexedDB'
+                  : 'Автозбережено'}
+              </span>
             </div>
           </div>
 

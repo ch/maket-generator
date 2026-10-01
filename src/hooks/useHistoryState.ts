@@ -59,6 +59,7 @@ export function useHistoryState(
   const [lastSaved, setLastSaved] = useState<number>(Date.now());
   const [isRestoredFromSave, setIsRestoredFromSave] = useState<boolean>(false);
   const [isDbLoaded, setIsDbLoaded] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isNavigatingHistoryRef = useRef<boolean>(false);
@@ -113,17 +114,22 @@ export function useHistoryState(
 
   // Helper to reliably persist to IndexedDB (with best-effort localStorage fallback)
   const persistToStorage = useCallback((h: HistorySnapshot[], idx: number) => {
+    setIsSaving(true);
     const dataToSave: SavedStateWrapper = {
       history: h,
       historyIndex: idx,
     };
 
     // 1. Primary persistence: IndexedDB (No 5MB limit, stores full history and high-res images)
-    saveHistoryToDb(dataToSave).then((success) => {
-      if (success) {
-        setLastSaved(Date.now());
-      }
-    });
+    saveHistoryToDb(dataToSave)
+      .then((success) => {
+        if (success) {
+          setLastSaved(Date.now());
+        }
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
 
     // 2. Secondary best-effort backup to localStorage
     try {
@@ -297,6 +303,30 @@ export function useHistoryState(
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
 
+  // Flush any pending debounced edits immediately into history and storage
+  const flushPending = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    const snap = history[historyIndex];
+    if (
+      snap &&
+      (sceneConfig !== snap.sceneConfig || phoneImage !== snap.phoneImage)
+    ) {
+      commitSnapshot(sceneConfig, phoneImage, 'Зміна параметрів');
+    }
+  }, [history, historyIndex, sceneConfig, phoneImage, commitSnapshot]);
+
+  // Track if there are uncommitted live edits in flight or storage write is active
+  const currentSnap = history[historyIndex];
+  const hasPendingEdits = Boolean(
+    isDbLoaded &&
+      currentSnap &&
+      (sceneConfig !== currentSnap.sceneConfig || phoneImage !== currentSnap.phoneImage)
+  );
+  const hasUnsavedChanges = hasPendingEdits || isSaving;
+
   return {
     sceneConfig,
     setSceneConfig: updateLiveConfig,
@@ -312,5 +342,8 @@ export function useHistoryState(
     lastSaved,
     isRestoredFromSave,
     resetToInitial,
+    hasUnsavedChanges,
+    isSaving,
+    flushPending,
   };
 }
