@@ -44,6 +44,7 @@ import {
   Quote,
   Heart,
   Type,
+  PanelRightClose,
 } from 'lucide-react';
 import { PresetsTab } from './PresetsTab';
 import { HexColorPickerInput } from './HexColorPickerInput';
@@ -66,6 +67,7 @@ interface SidebarControlsProps {
   onResetTransforms: () => void;
   onSetCanvasRatio: (ratio: CanvasRatio) => void;
   onShowToast: (message: string, type?: 'success' | 'error') => void;
+  onToggleCollapse?: () => void;
 }
 
 export const SidebarControls: React.FC<SidebarControlsProps> = ({
@@ -85,6 +87,7 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
   onResetTransforms,
   onSetCanvasRatio,
   onShowToast,
+  onToggleCollapse,
 }) => {
   const [activeTab, setActiveTab] = useState<'content' | 'canvas' | 'shadows' | 'widget' | 'transform' | 'presets' | 'export'>('canvas');
   const [exportRes, setExportRes] = useState<ExportResolution>(2);
@@ -227,15 +230,28 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
           </div>
         </div>
 
-        {/* Demo button */}
-        <button
-          onClick={onLoadDemoImages}
-          title="Завантажити зразки фото"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white rounded-lg transition border border-neutral-700/60"
-        >
-          <Sparkles size={13} className="text-amber-400" />
-          <span>Демо фото</span>
-        </button>
+        <div className="flex items-center gap-1.5">
+          {/* Demo button */}
+          <button
+            onClick={onLoadDemoImages}
+            title="Завантажити зразки фото"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white rounded-lg transition border border-neutral-700/60"
+          >
+            <Sparkles size={13} className="text-amber-400" />
+            <span>Демо</span>
+          </button>
+
+          {/* Collapse sidebar button */}
+          {onToggleCollapse && (
+            <button
+              onClick={onToggleCollapse}
+              title="Згорнути бічну панель"
+              className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition border border-neutral-700/50"
+            >
+              <PanelRightClose size={15} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabs Bar */}

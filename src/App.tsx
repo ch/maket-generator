@@ -29,13 +29,16 @@ import {
   Maximize,
   CheckCircle,
   AlertCircle,
-  Sun,
   LayoutTemplate,
   Undo2,
   Redo2,
   Plus,
   Bookmark,
   Download,
+  PanelRightClose,
+  PanelRightOpen,
+  ChevronLeft,
+  Sliders,
 } from 'lucide-react';
 
 const INITIAL_SCENE_CONFIG: SceneConfig = {
@@ -146,6 +149,7 @@ export default function App() {
   const [isAddWidgetModalOpen, setIsAddWidgetModalOpen] = useState(false);
   const [isSavePresetModalOpen, setIsSavePresetModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -627,33 +631,27 @@ export default function App() {
       {/* Main Canvas Workspace */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Top Floating App Bar */}
-        <header className="h-14 border-b border-neutral-800/80 bg-neutral-900/70 backdrop-blur-md px-3 sm:px-5 flex items-center justify-between z-10 shrink-0 gap-2">
-          {/* Left: Format & Sun Badges */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center gap-1.5 hidden sm:inline-flex">
+        <header className="h-14 border-b border-neutral-800/80 bg-neutral-900/70 backdrop-blur-md px-2.5 sm:px-4 flex items-center justify-between z-10 shrink-0 gap-1.5 sm:gap-2">
+          {/* Left: Format Badges */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 items-center gap-1.5 hidden xl:inline-flex">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
               SVG Vector
             </span>
-            <span className="text-xs text-neutral-400 flex items-center gap-1.5 bg-neutral-800/60 px-2.5 py-1 rounded-lg border border-neutral-700/50">
-              <LayoutTemplate size={13} className="text-neutral-500" />
+            <span className="text-xs text-neutral-400 flex items-center gap-1.5 bg-neutral-800/60 px-2 sm:px-2.5 py-1 rounded-lg border border-neutral-700/50">
+              <LayoutTemplate size={13} className="text-neutral-500 shrink-0" />
               <strong className="text-neutral-300">
                 {CANVAS_RATIO_PRESETS[sceneConfig.canvasRatio]?.ratioDisplay || 'Custom'}
-              </strong>{' '}
-              <span className="text-neutral-500 hidden md:inline">
+              </strong>
+              <span className="text-neutral-500 hidden 2xl:inline">
                 ({sceneConfig.width} × {sceneConfig.height} px)
               </span>
             </span>
-            {sceneConfig.shadowEnabled && (
-              <span className="text-xs text-amber-400/90 hidden lg:flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                <Sun size={12} />
-                <span>Сонце: {sceneConfig.lightAngle}°</span>
-              </span>
-            )}
           </div>
 
           {/* Center: History Undo/Redo & Auto-save Status */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-700/60">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-700/60 shrink-0">
               <button
                 onClick={undo}
                 disabled={!canUndo}
@@ -682,13 +680,13 @@ export default function App() {
             </div>
 
             {/* Step Counter Badge */}
-            <span className="text-[11px] font-mono text-neutral-400 bg-neutral-800/60 px-2 py-1 rounded border border-neutral-700/40 hidden sm:inline-block">
-              Крок {historyIndex + 1}/{historyTotal}
+            <span className="text-[11px] font-mono text-neutral-400 bg-neutral-800/60 px-2 py-1 rounded border border-neutral-700/40 hidden lg:inline-block shrink-0">
+              {historyIndex + 1}/{historyTotal}
             </span>
 
             {/* Auto-saved Live Indicator */}
             <div
-              className={`hidden md:flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded border transition-colors ${
+              className={`hidden md:flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded border transition-colors shrink-0 ${
                 hasUnsavedChanges
                   ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
                   : 'text-emerald-400/90 bg-emerald-500/10 border-emerald-500/20'
@@ -705,20 +703,16 @@ export default function App() {
                 }`}
               />
               <span>
-                {hasUnsavedChanges
-                  ? 'Збереження...'
-                  : isRestoredFromSave
-                  ? 'Збережено в IndexedDB'
-                  : 'Автозбережено'}
+                {hasUnsavedChanges ? 'Збереження...' : 'Збережено'}
               </span>
             </div>
           </div>
 
-          {/* Right: + Add Widget & Zoom controls */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Right: + Add Widget & Zoom controls & Presets & Export & Sidebar Toggle */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={() => setIsAddWidgetModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-md shadow-indigo-600/20 transition active:scale-95"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-md shadow-indigo-600/20 transition active:scale-95 shrink-0"
               title="Додати новий віджет (Instagram пост, Stories, відгук, фото)"
             >
               <Plus size={14} className="stroke-[2.5]" />
@@ -726,53 +720,76 @@ export default function App() {
             </button>
 
             {/* Quick Zoom & Reset controls */}
-            <div className="flex items-center gap-1 bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-700/60">
+            <div className="flex items-center gap-0.5 sm:gap-1 bg-neutral-800/80 p-0.5 rounded-lg border border-neutral-700/60 shrink-0">
               <button
                 onClick={() => setZoomLevel((z) => Math.max(0.4, Number((z - 0.1).toFixed(2))))}
-                className="p-1.5 text-neutral-400 hover:text-white rounded hover:bg-neutral-700/60 transition"
+                className="p-1 sm:p-1.5 text-neutral-400 hover:text-white rounded hover:bg-neutral-700/60 transition"
                 title="Зменшити"
               >
-                <ZoomOut size={14} />
+                <ZoomOut size={13} />
               </button>
-              <span className="text-xs font-mono px-1 text-neutral-300 min-w-[36px] text-center">
+              <span className="text-[11px] sm:text-xs font-mono px-0.5 sm:px-1 text-neutral-300 min-w-[32px] sm:min-w-[36px] text-center">
                 {Math.round(zoomLevel * 100)}%
               </span>
               <button
                 onClick={() => setZoomLevel((z) => Math.min(2.5, Number((z + 0.1).toFixed(2))))}
-                className="p-1.5 text-neutral-400 hover:text-white rounded hover:bg-neutral-700/60 transition"
+                className="p-1 sm:p-1.5 text-neutral-400 hover:text-white rounded hover:bg-neutral-700/60 transition"
                 title="Збільшити"
               >
-                <ZoomIn size={14} />
+                <ZoomIn size={13} />
               </button>
               <div className="w-[1px] h-3.5 bg-neutral-700 mx-0.5 hidden sm:block" />
               <button
                 onClick={() => setZoomLevel(1)}
-                className="hidden sm:flex items-center gap-1 px-2 py-1 text-xs text-neutral-300 hover:text-white rounded hover:bg-neutral-700/60 transition font-medium"
+                className="hidden sm:flex items-center gap-1 px-1.5 sm:px-2 py-1 text-xs text-neutral-300 hover:text-white rounded hover:bg-neutral-700/60 transition font-medium"
                 title="Масштабувати на весь екран (100% Fit)"
               >
-                <Maximize size={12} className="text-indigo-400" />
-                <span>100% Fit</span>
+                <Maximize size={11} className="text-indigo-400" />
+                <span className="hidden xl:inline">100% Fit</span>
               </button>
             </div>
 
             {/* Save Preset Button */}
             <button
               onClick={() => setIsSavePresetModalOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-medium text-neutral-200 hover:text-white bg-neutral-800/80 hover:bg-neutral-700/80 border border-neutral-700/60 rounded-lg transition active:scale-95 shadow-sm"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-neutral-200 hover:text-white bg-neutral-800/80 hover:bg-neutral-700/80 border border-neutral-700/60 rounded-lg transition active:scale-95 shadow-sm shrink-0"
               title="Зберегти поточні налаштування макета як пресет"
             >
               <Bookmark size={13} className="text-amber-400 shrink-0" />
-              <span className="hidden md:inline">Зберегти пресет</span>
+              <span className="hidden xl:inline">Пресет</span>
             </button>
 
             {/* Export Button */}
             <button
               onClick={() => setIsExportModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-lg shadow-md shadow-emerald-950/30 transition active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-lg shadow-md shadow-emerald-950/30 transition active:scale-95 shrink-0"
               title="Експорт макета (SVG, PNG, JPEG, буфер обміну)"
             >
               <Download size={13} className="stroke-[2.5] shrink-0" />
               <span>Експорт</span>
+            </button>
+
+            {/* Toggle Sidebar Button */}
+            <button
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border transition active:scale-95 shrink-0 ${
+                isSidebarOpen
+                  ? 'bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 hover:text-white border-neutral-700/60'
+                  : 'bg-indigo-600/90 hover:bg-indigo-500 text-white border-indigo-500 shadow-md shadow-indigo-600/20'
+              }`}
+              title={isSidebarOpen ? "Згорнути бічну панель" : "Розгорнути бічну панель"}
+            >
+              {isSidebarOpen ? (
+                <>
+                  <PanelRightClose size={14} className="shrink-0" />
+                  <span className="hidden 2xl:inline">Панель</span>
+                </>
+              ) : (
+                <>
+                  <PanelRightOpen size={14} className="shrink-0" />
+                  <span>Панель</span>
+                </>
+              )}
             </button>
           </div>
         </header>
@@ -790,6 +807,19 @@ export default function App() {
               backgroundSize: '24px 24px',
             }}
           />
+
+          {/* Floating Expand Sidebar Button when Collapsed */}
+          {!isSidebarOpen && (
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="absolute right-4 top-4 z-30 flex items-center gap-2 px-3 py-2 bg-neutral-900/95 hover:bg-neutral-800 text-neutral-200 hover:text-white rounded-xl border border-neutral-700/80 shadow-2xl backdrop-blur transition active:scale-95 group"
+              title="Розгорнути панель налаштувань"
+            >
+              <Sliders size={14} className="text-indigo-400 group-hover:rotate-45 transition-transform" />
+              <span className="text-xs font-semibold">Панель налаштувань</span>
+              <ChevronLeft size={14} className="text-neutral-400" />
+            </button>
+          )}
 
           {/* Scalable Container for SVG Scene (Expanded to 100% Available Screen) */}
           <div
@@ -826,8 +856,15 @@ export default function App() {
       </div>
 
       {/* Right Sidebar Controls */}
-      <aside className="h-[48vh] lg:h-full shrink-0 border-t lg:border-t-0 z-20">
+      <aside
+        className={`h-[48vh] lg:h-full shrink-0 border-t lg:border-t-0 z-20 transition-all duration-300 ease-in-out ${
+          isSidebarOpen
+            ? 'w-full sm:w-[390px] lg:w-[430px]'
+            : 'w-0 overflow-hidden border-none pointer-events-none'
+        }`}
+      >
         <SidebarControls
+          onToggleCollapse={() => setIsSidebarOpen(false)}
           sceneConfig={sceneConfig}
           onChangeSceneConfig={setSceneConfig}
           phoneImage={phoneImage}

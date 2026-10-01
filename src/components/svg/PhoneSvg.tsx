@@ -11,7 +11,6 @@ import {
   SvgSearch,
   SvgPlusSquare,
   SvgReels,
-  SvgMessenger,
 } from './SvgIcons';
 
 interface PhoneSvgProps {
@@ -168,38 +167,47 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
 
         {/* 2. Instagram Top App Header */}
         <g>
-          {profile.headerTitle && profile.headerTitle.trim().length > 0 && (
-            <g>
-              <text
-                x="20"
-                y="65"
-                fill="#111827"
-                fontFamily="'Playfair Display', Georgia, 'Times New Roman', serif"
-                fontSize="16.5"
-                fontWeight="600"
-                fontStyle="italic"
-                letterSpacing="-0.3px"
-              >
-                {profile.headerTitle}
-              </text>
-              {/* Chevron down positioned after header title */}
-              <path
-                d={`m${Math.min(235, Math.max(35, 20 + Math.round(profile.headerTitle.trim().length * 7.5) + 6))} 60 3 3 3-3`}
-                fill="none"
-                stroke="#111827"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </g>
-          )}
+          {profile.headerTitle && profile.headerTitle.trim().length > 0 && (() => {
+            const trimmed = profile.headerTitle.trim();
+            // Estimate text width in Playfair Display 16.5px font:
+            const textWidth = Math.round(trimmed.length * 7.6);
+            // Center the combined block (text + 5px gap + 7px chevron) at horizontal center (167)
+            const totalWidth = textWidth + 5 + 7;
+            const startX = 167 - totalWidth / 2;
+            const textCenter = startX + textWidth / 2;
+            const chevronX = startX + textWidth + 5;
 
-          {/* Activity Heart & Direct Messages Icons */}
-          <g transform="translate(254, 50)" className="text-neutral-800">
+            return (
+              <g>
+                <text
+                  x={textCenter}
+                  y="65"
+                  textAnchor="middle"
+                  fill="#111827"
+                  fontFamily="'Playfair Display', Georgia, 'Times New Roman', serif"
+                  fontSize="16.5"
+                  fontWeight="600"
+                  fontStyle="italic"
+                  letterSpacing="-0.3px"
+                >
+                  {trimmed}
+                </text>
+                {/* Chevron pointing downwards right after centered header title */}
+                <path
+                  d={`m${chevronX} 60.5 3.5 3.5 3.5-3.5`}
+                  fill="none"
+                  stroke="#111827"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </g>
+            );
+          })()}
+
+          {/* Activity Heart Icon (messenger arrow icon removed) */}
+          <g transform="translate(284, 50)" className="text-neutral-800">
             <SvgHeart size={18} stroke="#111827" strokeWidth={1.8} />
-          </g>
-          <g transform="translate(284, 49)" className="text-neutral-800">
-            <SvgMessenger size={19} stroke="#111827" strokeWidth={1.8} />
           </g>
         </g>
 
