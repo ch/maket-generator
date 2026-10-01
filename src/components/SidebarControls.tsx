@@ -1,11 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   SceneConfig,
   WidgetTransform,
   ExportResolution,
   CanvasRatio,
+  CANVAS_RATIO_PRESETS,
 } from '../types';
 import { SunAngleKnob } from './SunAngleKnob';
+import { WidgetRotationDial } from './WidgetRotationDial';
+import { PHONE_BASE_WIDTH, PHONE_BASE_HEIGHT } from './svg/PhoneSvg';
+import { CARD_BASE_WIDTH, CARD_BASE_HEIGHT } from './svg/PostCardSvg';
 import {
   Layers,
   Sliders,
@@ -25,21 +29,19 @@ import {
   ToggleLeft,
   ToggleRight,
   Bookmark,
+  ChevronsUp,
+  ChevronsDown,
+  ChevronUp,
+  ChevronDown,
+  Lock,
+  Box,
+  Move,
+  ArrowLeft,
+  ArrowRight,
+  Eye,
+  Trash2,
 } from 'lucide-react';
 import { PresetsTab } from './PresetsTab';
-
-export const CANVAS_RATIO_PRESETS: Record<
-  CanvasRatio,
-  { width: number; height: number; label: string; sub: string; ratioDisplay: string }
-> = {
-  'reference': { width: 1600, height: 1100, label: 'Еталон', sub: '1600 × 1100', ratioDisplay: '16:11' },
-  '1:1': { width: 1400, height: 1400, label: '1:1', sub: 'Квадрат (Square)', ratioDisplay: '1:1' },
-  '4:5': { width: 1200, height: 1500, label: '4:5', sub: 'Портрет Instagram', ratioDisplay: '4:5' },
-  '5:4': { width: 1500, height: 1200, label: '5:4', sub: 'Альбом (Landscape)', ratioDisplay: '5:4' },
-  '16:9': { width: 1600, height: 900, label: '16:9', sub: 'Широкоформатний', ratioDisplay: '16:9' },
-  '9:16': { width: 1080, height: 1920, label: '9:16', sub: 'Stories / Reels', ratioDisplay: '9:16' },
-  'custom': { width: 1600, height: 1100, label: 'Власний', sub: 'Вказати пікселі', ratioDisplay: 'Custom' },
-};
 
 interface SidebarControlsProps {
   sceneConfig: SceneConfig;
@@ -49,6 +51,7 @@ interface SidebarControlsProps {
   onUpdateCardImage: (cardId: string, url: string | null) => void;
   selectedSlotId: string | null;
   onSelectSlot: (slotId: string) => void;
+  onReorderLayer: (slotId: string, action: 'front' | 'back' | 'up' | 'down') => void;
   onExport: (format: 'png' | 'jpeg' | 'svg', resolution: ExportResolution) => void;
   onCopyClipboard: (resolution: ExportResolution) => void;
   onLoadDemoImages: () => void;
@@ -65,6 +68,7 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
   onUpdateCardImage,
   selectedSlotId,
   onSelectSlot,
+  onReorderLayer,
   onExport,
   onCopyClipboard,
   onLoadDemoImages,
@@ -72,9 +76,18 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
   onSetCanvasRatio,
   onShowToast,
 }) => {
-  const [activeTab, setActiveTab] = useState<'content' | 'canvas' | 'shadows' | 'transform' | 'presets' | 'export'>('canvas');
+  const [activeTab, setActiveTab] = useState<'content' | 'canvas' | 'shadows' | 'widget' | 'transform' | 'presets' | 'export'>('canvas');
   const [exportRes, setExportRes] = useState<ExportResolution>(2);
   const [copied, setCopied] = useState(false);
+
+  // When user selects/clicks any widget on canvas, automatically switch to 'widget' tab
+  const prevSelectedSlotRef = useRef<string | null>(selectedSlotId);
+  useEffect(() => {
+    if (selectedSlotId && selectedSlotId !== prevSelectedSlotRef.current) {
+      setActiveTab('widget');
+    }
+    prevSelectedSlotRef.current = selectedSlotId;
+  }, [selectedSlotId]);
 
   const batchFileInputRef = useRef<HTMLInputElement | null>(null);
   const avatarFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -203,6 +216,23 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
         >
           <LayoutTemplate size={13} />
           Холст
+        </button>
+        <button
+          onClick={() => setActiveTab('widget')}
+          className={`flex items-center gap-1 px-2.5 py-2 text-xs font-medium border-b-2 whitespace-nowrap transition ${
+            activeTab === 'widget'
+              ? 'border-indigo-500 text-indigo-400 bg-indigo-950/20'
+              : selectedSlotId
+              ? 'border-transparent text-indigo-300 hover:text-white'
+              : 'border-transparent text-neutral-400 hover:text-neutral-200'
+          }`}
+          title="Налаштування вибраного віджета (розміри px, шар, поворот 360°)"
+        >
+          <Box size={13} className={selectedSlotId ? 'text-indigo-400' : ''} />
+          <span>Віджет</span>
+          {selectedSlotId && (
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse ml-0.5" />
+          )}
         </button>
         <button
           onClick={() => setActiveTab('shadows')}
@@ -522,6 +552,550 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
             </div>
           </div>
         )}
+
+        {/* ================= TAB: WIDGET INSPECTOR (EXACT PIXELS, LAYERS, 360° ROTATION) ================= */}
+        {activeTab === 'widget' && (() => {
+          const effectiveLayerOrder = sceneConfig.layerOrder && sceneConfig.layerOrder.length === 5
+            ? sceneConfig.layerOrder
+            : ['card-1', 'card-2', 'card-3', 'card-4', 'phone'];
+
+          const allSlotIds = ['phone', 'card-1', 'card-2', 'card-3', 'card-4'];
+
+          const getSlotDetails = (id: string) => {
+            if (id === 'phone') {
+              return {
+                id: 'phone',
+                title: 'iPhone 16 Pro',
+                category: 'Телефон (Portrait 9:16)',
+                baseW: PHONE_BASE_WIDTH,
+                baseH: PHONE_BASE_HEIGHT,
+                icon: '📱',
+                image: phoneImage,
+                isPhone: true,
+              };
+            }
+            const idx = cards.findIndex((c) => c.id === id);
+            const card = cards[idx];
+            return {
+              id,
+              title: card?.title || `Картка #${idx + 1}`,
+              category: `Картка #${idx + 1}`,
+              baseW: CARD_BASE_WIDTH,
+              baseH: CARD_BASE_HEIGHT,
+              icon: '📄',
+              image: card?.imageUrl || null,
+              isPhone: false,
+            };
+          };
+
+          // If no widget is currently selected, show the widget selection picker
+          if (!selectedSlotId || !selectedTransform) {
+            return (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-neutral-800/40 border border-neutral-700/60 text-center space-y-1.5">
+                  <div className="w-10 h-10 mx-auto rounded-full bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                    <Box size={20} />
+                  </div>
+                  <h3 className="text-xs font-semibold text-white">Оберіть віджет для налаштування</h3>
+                  <p className="text-[11px] text-neutral-400 max-w-[280px] mx-auto">
+                    Клікніть на будь-який віджет на холсті або виберіть зі списку нижче, щоб змінити його точні розміри в px, шар чи кут повороту.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 block px-1">
+                    Список віджетів на сцені
+                  </span>
+                  {allSlotIds.map((id) => {
+                    const info = getSlotDetails(id);
+                    const layerIndex = effectiveLayerOrder.indexOf(id);
+                    const layerNum = layerIndex + 1;
+
+                    return (
+                      <div
+                        key={id}
+                        onClick={() => onSelectSlot(id)}
+                        className="p-2.5 rounded-xl border border-neutral-800 bg-neutral-800/40 hover:border-indigo-500/60 hover:bg-neutral-800/80 cursor-pointer transition flex items-center justify-between group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-11 rounded-lg bg-neutral-900 border border-neutral-700/80 flex items-center justify-center overflow-hidden shrink-0">
+                            {info.image ? (
+                              <img src={info.image} alt={info.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-base">{info.icon}</span>
+                            )}
+                          </div>
+                          <div>
+                            <div className="text-xs font-semibold text-white group-hover:text-indigo-300 transition">
+                              {info.title}
+                            </div>
+                            <div className="text-[10px] text-neutral-400 flex items-center gap-2">
+                              <span>{info.category}</span>
+                              <span>•</span>
+                              <span>Шар {layerNum}/5</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectSlot(id);
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 group-hover:bg-indigo-600 group-hover:text-white transition"
+                        >
+                          Налаштувати
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+
+          // A widget IS selected: render full inspector
+          const currentSlotInfo = getSlotDetails(selectedSlotId);
+          const baseW = currentSlotInfo.baseW;
+          const baseH = currentSlotInfo.baseH;
+          const currentW = Math.round(baseW * selectedTransform.scale);
+          const currentH = Math.round(baseH * selectedTransform.scale);
+
+          const currentLayerIdx = effectiveLayerOrder.indexOf(selectedSlotId);
+          const isTop = currentLayerIdx === effectiveLayerOrder.length - 1;
+          const isBottom = currentLayerIdx === 0;
+          const layerPosition = currentLayerIdx + 1;
+
+          const currIndexInAll = allSlotIds.indexOf(selectedSlotId);
+          const prevId = allSlotIds[(currIndexInAll - 1 + allSlotIds.length) % allSlotIds.length];
+          const nextId = allSlotIds[(currIndexInAll + 1) % allSlotIds.length];
+
+          return (
+            <div className="space-y-6">
+              {/* Top Selected Widget Hero Banner */}
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-950/50 via-neutral-800/60 to-neutral-800/80 border border-indigo-500/40 shadow-lg space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-12 rounded-lg bg-neutral-900 border border-indigo-500/50 flex items-center justify-center overflow-hidden shrink-0 shadow">
+                      {currentSlotInfo.image ? (
+                        <img src={currentSlotInfo.image} alt="Selected" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xl">{currentSlotInfo.icon}</span>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-xs font-bold text-white tracking-tight">{currentSlotInfo.title}</h3>
+                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+                          {selectedSlotId}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-400">
+                        {currentSlotInfo.category} • Шар {layerPosition}/5
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => onSelectSlot('')}
+                    className="text-[11px] px-2 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white border border-neutral-700 transition"
+                    title="Зняти виділення"
+                  >
+                    Зняти вибір
+                  </button>
+                </div>
+
+                {/* Quick Prev / Next Widget Switcher */}
+                <div className="flex items-center justify-between pt-1 border-t border-neutral-700/50 text-xs">
+                  <button
+                    onClick={() => onSelectSlot(prevId)}
+                    className="flex items-center gap-1 text-[11px] text-neutral-400 hover:text-indigo-300 transition"
+                  >
+                    <ArrowLeft size={12} />
+                    <span>Попередній</span>
+                  </button>
+                  <span className="text-[10px] text-neutral-500">
+                    Віджет {currIndexInAll + 1} з {allSlotIds.length}
+                  </span>
+                  <button
+                    onClick={() => onSelectSlot(nextId)}
+                    className="flex items-center gap-1 text-[11px] text-neutral-400 hover:text-indigo-300 transition"
+                  >
+                    <span>Наступний</span>
+                    <ArrowRight size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {/* 1. EXACT PIXEL DIMENSIONS (Width px & Height px with locked proportions) */}
+              <div className="space-y-3 p-3.5 rounded-xl bg-neutral-800/50 border border-neutral-700/70">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
+                    <Sliders size={13} className="text-indigo-400" />
+                    Точні розміри у пікселях
+                  </span>
+                  <span className="text-[10px] text-indigo-400 font-mono bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-500/20 flex items-center gap-1">
+                    <Lock size={10} />
+                    Пропорції 100%
+                  </span>
+                </div>
+
+                {/* Width px & Height px inputs */}
+                <div className="grid grid-cols-2 gap-2.5 items-center">
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">
+                      Ширина (Width px)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={50}
+                        max={3000}
+                        step={1}
+                        value={currentW}
+                        onChange={(e) => {
+                          const w = parseInt(e.target.value, 10);
+                          if (w && w > 0) {
+                            handleUpdateSelectedTransform({
+                              scale: Number((w / baseW).toFixed(4)),
+                            });
+                          }
+                        }}
+                        className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-neutral-800 border border-neutral-700 text-white font-mono focus:outline-none focus:border-indigo-500"
+                        placeholder={`${baseW}`}
+                      />
+                      <span className="absolute right-2.5 top-1.5 text-[10px] text-neutral-500 font-mono pointer-events-none">
+                        px
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-neutral-500 mt-0.5 block font-mono">
+                      базова: {baseW}px
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">
+                      Висота (Height px)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={50}
+                        max={4000}
+                        step={1}
+                        value={currentH}
+                        onChange={(e) => {
+                          const h = parseInt(e.target.value, 10);
+                          if (h && h > 0) {
+                            handleUpdateSelectedTransform({
+                              scale: Number((h / baseH).toFixed(4)),
+                            });
+                          }
+                        }}
+                        className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-neutral-800 border border-neutral-700 text-white font-mono focus:outline-none focus:border-indigo-500"
+                        placeholder={`${baseH}`}
+                      />
+                      <span className="absolute right-2.5 top-1.5 text-[10px] text-neutral-500 font-mono pointer-events-none">
+                        px
+                      </span>
+                    </div>
+                    <span className="text-[9px] text-neutral-500 mt-0.5 block font-mono">
+                      базова: {baseH}px
+                    </span>
+                  </div>
+                </div>
+
+                {/* Scale range slider */}
+                <div className="space-y-1 pt-1.5">
+                  <div className="flex justify-between text-xs text-neutral-300">
+                    <span>Масштаб віджета</span>
+                    <span className="font-mono text-indigo-400 font-bold">
+                      {Math.round(selectedTransform.scale * 100)}% ({selectedTransform.scale.toFixed(2)}x)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.3"
+                    max="2.0"
+                    step="0.01"
+                    value={selectedTransform.scale}
+                    onChange={(e) =>
+                      handleUpdateSelectedTransform({ scale: parseFloat(e.target.value) })
+                    }
+                    className="w-full accent-indigo-500 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-neutral-500 font-mono">
+                    <span>30%</span>
+                    <span>100% (1x)</span>
+                    <span>200%</span>
+                  </div>
+                </div>
+
+                {/* Quick scale presets chips */}
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {[
+                    { s: 0.6, label: '60%' },
+                    { s: 0.8, label: '80%' },
+                    { s: 1.0, label: '100% (1x)' },
+                    { s: 1.2, label: '120%' },
+                    { s: 1.4, label: '140%' },
+                    { s: 1.6, label: '160%' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      onClick={() => handleUpdateSelectedTransform({ scale: preset.s })}
+                      className={`text-[10px] px-2 py-0.5 rounded border transition font-mono ${
+                        Math.abs(selectedTransform.scale - preset.s) < 0.02
+                          ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300 font-bold'
+                          : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-600'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. LAYER REORDERING / Z-INDEX (ПОМІТЯ СЛОЙ) */}
+              <div className="space-y-3 p-3.5 rounded-xl bg-neutral-800/50 border border-neutral-700/70">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
+                    <Layers size={13} className="text-indigo-400" />
+                    Порядок шарів (Z-Index)
+                  </span>
+                  <span className="text-[10px] text-amber-400 font-mono bg-amber-950/40 px-2 py-0.5 rounded border border-amber-500/20">
+                    Шар {layerPosition} з 5 {isTop ? '• Верхній' : isBottom ? '• Нижній' : ''}
+                  </span>
+                </div>
+
+                {/* 4 Quick Layer Reorder Action Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    disabled={isTop}
+                    onClick={() => onReorderLayer(selectedSlotId, 'front')}
+                    className="p-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed border border-neutral-700 text-neutral-200 text-xs font-medium flex items-center justify-center gap-1.5 transition"
+                    title="Перемістити на самий верхній шар"
+                  >
+                    <ChevronsUp size={14} className="text-indigo-400" />
+                    <span>На самий верх</span>
+                  </button>
+
+                  <button
+                    disabled={isTop}
+                    onClick={() => onReorderLayer(selectedSlotId, 'up')}
+                    className="p-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed border border-neutral-700 text-neutral-200 text-xs font-medium flex items-center justify-center gap-1.5 transition"
+                    title="Підняти на один шар вище"
+                  >
+                    <ChevronUp size={14} className="text-indigo-400" />
+                    <span>Вище на 1 шар</span>
+                  </button>
+
+                  <button
+                    disabled={isBottom}
+                    onClick={() => onReorderLayer(selectedSlotId, 'down')}
+                    className="p-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed border border-neutral-700 text-neutral-200 text-xs font-medium flex items-center justify-center gap-1.5 transition"
+                    title="Опустити на один шар нижче"
+                  >
+                    <ChevronDown size={14} className="text-indigo-400" />
+                    <span>Нижче на 1 шар</span>
+                  </button>
+
+                  <button
+                    disabled={isBottom}
+                    onClick={() => onReorderLayer(selectedSlotId, 'back')}
+                    className="p-2 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed border border-neutral-700 text-neutral-200 text-xs font-medium flex items-center justify-center gap-1.5 transition"
+                    title="Перемістити на самий задній шар"
+                  >
+                    <ChevronsDown size={14} className="text-indigo-400" />
+                    <span>На самий низ</span>
+                  </button>
+                </div>
+
+                {/* Visual Stack Hierarchy (Top to Bottom) */}
+                <div className="space-y-1 pt-1">
+                  <span className="text-[10px] text-neutral-400 block font-medium">
+                    Поточна стопка накладання (згори донизу):
+                  </span>
+                  <div className="space-y-1">
+                    {[...effectiveLayerOrder].reverse().map((layerId, reverseIdx) => {
+                      const isThisSelected = layerId === selectedSlotId;
+                      const itemNum = 5 - reverseIdx;
+                      const layerInfo = getSlotDetails(layerId);
+
+                      return (
+                        <div
+                          key={layerId}
+                          onClick={() => onSelectSlot(layerId)}
+                          className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-xs cursor-pointer transition ${
+                            isThisSelected
+                              ? 'bg-indigo-950/60 border-indigo-500 text-white font-medium shadow-sm'
+                              : 'bg-neutral-800/40 border-neutral-700/60 text-neutral-400 hover:text-neutral-200 hover:border-neutral-600'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono opacity-60 w-3 text-center">
+                              {itemNum}
+                            </span>
+                            <span className="text-xs">{layerInfo.icon}</span>
+                            <span className="truncate max-w-[170px]">{layerInfo.title}</span>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            {isThisSelected ? (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-600 text-white font-semibold">
+                                Вибрано
+                              </span>
+                            ) : (
+                              <span className="text-[10px] opacity-50">Шар {itemNum}</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. 360° CIRCULAR ROTATION (ПОВРОЩАТЬ ПО КРУГУ) */}
+              <WidgetRotationDial
+                rotation={selectedTransform.rotation}
+                onChange={(newRot) => handleUpdateSelectedTransform({ rotation: newRot })}
+                title="Поворот по колу 360°"
+              />
+
+              {/* 4. POSITION COORDINATES (X, Y) */}
+              <div className="space-y-3 p-3.5 rounded-xl bg-neutral-800/50 border border-neutral-700/70">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
+                    <Move size={13} className="text-indigo-400" />
+                    Позиція на холсті (px)
+                  </span>
+                  <span className="text-[10px] font-mono text-neutral-400">
+                    X: {selectedTransform.x}px • Y: {selectedTransform.y}px
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">Координата X</label>
+                    <input
+                      type="number"
+                      value={selectedTransform.x}
+                      onChange={(e) =>
+                        handleUpdateSelectedTransform({ x: parseInt(e.target.value, 10) || 0 })
+                      }
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-neutral-800 border border-neutral-700 text-white font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-neutral-400 block mb-1">Координата Y</label>
+                    <input
+                      type="number"
+                      value={selectedTransform.y}
+                      onChange={(e) =>
+                        handleUpdateSelectedTransform({ y: parseInt(e.target.value, 10) || 0 })
+                      }
+                      className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-neutral-800 border border-neutral-700 text-white font-mono focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Quick alignment helpers */}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={() =>
+                      handleUpdateSelectedTransform({
+                        x: Math.round((sceneConfig.width - currentW) / 2),
+                      })
+                    }
+                    className="py-1.5 px-2 text-[11px] rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition"
+                  >
+                    По центру X
+                  </button>
+                  <button
+                    onClick={() =>
+                      handleUpdateSelectedTransform({
+                        y: Math.round((sceneConfig.height - currentH) / 2),
+                      })
+                    }
+                    className="py-1.5 px-2 text-[11px] rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border border-neutral-700 transition"
+                  >
+                    По центру Y
+                  </button>
+                </div>
+              </div>
+
+              {/* 5. IMAGE REPLACEMENT FOR THIS WIDGET */}
+              <div className="space-y-3 p-3.5 rounded-xl bg-neutral-800/50 border border-neutral-700/70">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
+                    <ImageIcon size={13} className="text-indigo-400" />
+                    Фотографія віджета
+                  </span>
+                  <span className="text-[10px] text-neutral-400">
+                    {currentSlotInfo.image ? 'Завантажено' : 'Плейсхолдер'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-14 rounded-lg bg-neutral-900 border border-neutral-700 overflow-hidden flex items-center justify-center shrink-0">
+                    {currentSlotInfo.image ? (
+                      <img src={currentSlotInfo.image} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-lg">{currentSlotInfo.icon}</span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id={`widget-inspector-image-${selectedSlotId}`}
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const res = ev.target?.result as string;
+                            if (isPhoneSelected) {
+                              onUpdatePhoneImage(res);
+                            } else {
+                              onUpdateCardImage(selectedSlotId, res);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`widget-inspector-image-${selectedSlotId}`}
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium cursor-pointer transition shadow-md shadow-indigo-600/20"
+                    >
+                      <UploadCloud size={13} />
+                      <span>{currentSlotInfo.image ? 'Замінити фото' : 'Завантажити фото'}</span>
+                    </label>
+
+                    {currentSlotInfo.image && (
+                      <button
+                        onClick={() => {
+                          if (isPhoneSelected) {
+                            onUpdatePhoneImage(null);
+                          } else {
+                            onUpdateCardImage(selectedSlotId, null);
+                          }
+                        }}
+                        className="block text-[11px] text-rose-400 hover:text-rose-300 transition"
+                      >
+                        Скинути до плейсхолдера
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ================= TAB: SHADOWS & 360° LIGHT ================= */}
         {activeTab === 'shadows' && (

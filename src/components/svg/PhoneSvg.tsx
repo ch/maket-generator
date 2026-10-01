@@ -21,6 +21,7 @@ interface PhoneSvgProps {
   onSelectSlot?: () => void;
   filterId?: string;
   isInteractive?: boolean;
+  isSelected?: boolean;
 }
 
 export const PHONE_BASE_WIDTH = 334;
@@ -33,6 +34,7 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
   onSelectSlot,
   filterId = "phone-drop-shadow",
   isInteractive = true,
+  isSelected = false,
 }) => {
   const { x, y, scale, rotation } = transform;
   const centerX = PHONE_BASE_WIDTH / 2;
@@ -73,6 +75,20 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
         {/* Power button */}
         <rect x={PHONE_BASE_WIDTH} y="150" width="2.5" height="56" rx="1.25" fill="#9CA3AF" />
       </g>
+
+      {/* Selected Focus Outline */}
+      {isSelected && (
+        <rect
+          x="-3"
+          y="-3"
+          width={PHONE_BASE_WIDTH + 6}
+          height={PHONE_BASE_HEIGHT + 6}
+          rx="51"
+          fill="none"
+          stroke="#6366F1"
+          strokeWidth="3"
+        />
+      )}
 
       {/* Inner Black Bezel */}
       <rect

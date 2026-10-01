@@ -4,9 +4,10 @@ import {
   WidgetTransform,
   ExportResolution,
   CanvasRatio,
+  CANVAS_RATIO_PRESETS,
 } from './types';
 import { MockupSceneSvg } from './components/MockupSceneSvg';
-import { SidebarControls, CANVAS_RATIO_PRESETS } from './components/SidebarControls';
+import { SidebarControls } from './components/SidebarControls';
 import {
   exportAsSvg,
   exportAsRasterImage,
@@ -93,6 +94,7 @@ const INITIAL_SCENE_CONFIG: SceneConfig = {
       },
     },
   ],
+  layerOrder: ['card-1', 'card-2', 'card-3', 'card-4', 'phone'],
   profile: {
     username: '@subtleflowco',
     avatarUrl: null,
@@ -195,8 +197,45 @@ export default function App() {
         ...card,
         transform: { ...INITIAL_SCENE_CONFIG.cards[idx].transform },
       })),
+      layerOrder: ['card-1', 'card-2', 'card-3', 'card-4', 'phone'],
     }));
     showToast('Позиції та кути повернено до еталонних!');
+  };
+
+  const handleReorderLayer = (slotId: string, action: 'front' | 'back' | 'up' | 'down') => {
+    setSceneConfig((prev) => {
+      const currentOrder = prev.layerOrder && prev.layerOrder.length === 5
+        ? [...prev.layerOrder]
+        : ['card-1', 'card-2', 'card-3', 'card-4', 'phone'];
+      const index = currentOrder.indexOf(slotId);
+      if (index === -1) return prev;
+
+      const newOrder = [...currentOrder];
+      if (action === 'front') {
+        newOrder.splice(index, 1);
+        newOrder.push(slotId);
+      } else if (action === 'back') {
+        newOrder.splice(index, 1);
+        newOrder.unshift(slotId);
+      } else if (action === 'up') {
+        if (index < newOrder.length - 1) {
+          const temp = newOrder[index];
+          newOrder[index] = newOrder[index + 1];
+          newOrder[index + 1] = temp;
+        }
+      } else if (action === 'down') {
+        if (index > 0) {
+          const temp = newOrder[index];
+          newOrder[index] = newOrder[index - 1];
+          newOrder[index - 1] = temp;
+        }
+      }
+
+      return {
+        ...prev,
+        layerOrder: newOrder,
+      };
+    });
   };
 
   const handleSetCanvasRatio = (ratio: CanvasRatio) => {
@@ -455,6 +494,7 @@ export default function App() {
           onUpdateCardImage={handleUpdateCardImage}
           selectedSlotId={selectedSlotId}
           onSelectSlot={setSelectedSlotId}
+          onReorderLayer={handleReorderLayer}
           onExport={handleExport}
           onCopyClipboard={handleCopyClipboard}
           onLoadDemoImages={handleLoadDemoImages}

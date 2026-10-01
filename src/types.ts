@@ -26,6 +26,19 @@ export interface CardSlot {
 
 export type CanvasRatio = 'reference' | '1:1' | '4:5' | '5:4' | '16:9' | '9:16' | 'custom';
 
+export const CANVAS_RATIO_PRESETS: Record<
+  CanvasRatio,
+  { width: number; height: number; label: string; sub: string; ratioDisplay: string }
+> = {
+  'reference': { width: 1600, height: 1100, label: 'Еталон', sub: '1600 × 1100', ratioDisplay: '16:11' },
+  '1:1': { width: 1400, height: 1400, label: '1:1', sub: 'Квадрат (Square)', ratioDisplay: '1:1' },
+  '4:5': { width: 1200, height: 1500, label: '4:5', sub: 'Портрет Instagram', ratioDisplay: '4:5' },
+  '5:4': { width: 1500, height: 1200, label: '5:4', sub: 'Альбом (Landscape)', ratioDisplay: '5:4' },
+  '16:9': { width: 1600, height: 900, label: '16:9', sub: 'Широкоформатний', ratioDisplay: '16:9' },
+  '9:16': { width: 1080, height: 1920, label: '9:16', sub: 'Stories / Reels', ratioDisplay: '9:16' },
+  'custom': { width: 1600, height: 1100, label: 'Власний', sub: 'Вказати пікселі', ratioDisplay: 'Custom' },
+};
+
 export interface SceneConfig {
   width: number;
   height: number;
@@ -41,6 +54,7 @@ export interface SceneConfig {
   shadowSoftness: number; // 5 to 60
   phoneTransform: WidgetTransform;
   cards: CardSlot[];
+  layerOrder: string[]; // Order of element IDs rendered from back to front
   profile: MockupProfile;
 }
 
@@ -64,6 +78,7 @@ export interface MockupPreset {
     shadowSoftness: number;
     phoneTransform: WidgetTransform;
     cardsTransforms: Array<{ id: string; transform: WidgetTransform }>;
+    layerOrder?: string[];
     profile: {
       username: string;
       headerTitle: string;

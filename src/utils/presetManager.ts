@@ -29,6 +29,7 @@ export const DEFAULT_PRESETS: MockupPreset[] = [
         { id: 'card-3', transform: { x: 800, y: 410, scale: 1.0, rotation: -7 } },
         { id: 'card-4', transform: { x: 1030, y: 490, scale: 1.0, rotation: 5 } },
       ],
+      layerOrder: ['card-1', 'card-2', 'card-3', 'card-4', 'phone'],
       profile: {
         username: '@subtleflowco',
         headerTitle: 'Social Media',
@@ -64,6 +65,7 @@ export const DEFAULT_PRESETS: MockupPreset[] = [
         { id: 'card-3', transform: { x: 720, y: 560, scale: 0.95, rotation: -7 } },
         { id: 'card-4', transform: { x: 940, y: 640, scale: 0.95, rotation: 5 } },
       ],
+      layerOrder: ['card-1', 'card-2', 'card-3', 'card-4', 'phone'],
       profile: {
         username: '@creative.flow',
         headerTitle: 'Social Media',
@@ -99,6 +101,7 @@ export const DEFAULT_PRESETS: MockupPreset[] = [
         { id: 'card-3', transform: { x: 190, y: 1300, scale: 0.88, rotation: -6 } },
         { id: 'card-4', transform: { x: 570, y: 1330, scale: 0.88, rotation: 5 } },
       ],
+      layerOrder: ['card-1', 'card-2', 'card-3', 'card-4', 'phone'],
       profile: {
         username: '@daily.story',
         headerTitle: 'Highlights',
@@ -134,6 +137,7 @@ export const DEFAULT_PRESETS: MockupPreset[] = [
         { id: 'card-3', transform: { x: 770, y: 320, scale: 0.95, rotation: -7 } },
         { id: 'card-4', transform: { x: 990, y: 390, scale: 0.95, rotation: 5 } },
       ],
+      layerOrder: ['card-1', 'card-2', 'card-3', 'card-4', 'phone'],
       profile: {
         username: '@dark.studio',
         headerTitle: 'Portfolio',
@@ -206,6 +210,7 @@ export const createPresetFromScene = (name: string, config: SceneConfig): Mockup
         id: c.id,
         transform: { ...c.transform },
       })),
+      layerOrder: [...(config.layerOrder || ['card-1', 'card-2', 'card-3', 'card-4', 'phone'])],
       profile: {
         username: config.profile.username,
         headerTitle: config.profile.headerTitle,
@@ -249,6 +254,9 @@ export const applyPresetToScene = (preset: MockupPreset, current: SceneConfig): 
     shadowSoftness: s.shadowSoftness,
     phoneTransform: { ...s.phoneTransform },
     cards: updatedCards,
+    layerOrder: s.layerOrder && s.layerOrder.length === 5
+      ? [...s.layerOrder]
+      : (current.layerOrder || ['card-1', 'card-2', 'card-3', 'card-4', 'phone']),
     profile: {
       ...current.profile,
       username: s.profile.username,
