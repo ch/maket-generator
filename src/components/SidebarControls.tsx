@@ -43,6 +43,7 @@ import {
   Plus,
   Quote,
   Heart,
+  Type,
 } from 'lucide-react';
 import { PresetsTab } from './PresetsTab';
 import { HexColorPickerInput } from './HexColorPickerInput';
@@ -886,6 +887,65 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                 </div>
               )}
 
+              {/* PHONE HEADER TITLE EDITOR (SOCIAL MEDIA TEXT) */}
+              {(isPhoneSelected || selectedCard?.widgetType === 'phone') && (
+                <div className="space-y-2.5 p-3.5 rounded-xl bg-neutral-800/50 border border-neutral-700/70">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
+                      <Type size={13} className="text-indigo-400" />
+                      Текст шапки (Social Media)
+                    </span>
+                    {profile.headerTitle && profile.headerTitle.trim().length > 0 ? (
+                      <span className="text-[10px] text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-500/20 font-medium">
+                        Відображається
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-500/20 font-medium">
+                        Приховано
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-neutral-400 block mb-1">
+                      Заголовок у верхній панелі
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={profile.headerTitle}
+                        onChange={(e) => {
+                          onChangeSceneConfig((prev) => ({
+                            ...prev,
+                            profile: { ...prev.profile, headerTitle: e.target.value },
+                          }));
+                        }}
+                        className="w-full px-2.5 py-1.5 pr-8 text-xs rounded-lg bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:border-indigo-500"
+                        placeholder="Social Media (порожньо = не малювати)"
+                      />
+                      {profile.headerTitle && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onChangeSceneConfig((prev) => ({
+                              ...prev,
+                              profile: { ...prev.profile, headerTitle: '' },
+                            }));
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white p-0.5 text-xs transition"
+                          title="Очистити (приховати)"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-neutral-400 mt-1">
+                      Якщо пуста строка — текст і стрілочка не малюються на телефоні.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* HEART / LIKE TOGGLE CONTROL (ЛАЙКНУТО ЧИ НІ) */}
               {(isPhoneSelected || selectedCard?.widgetType !== 'quote') && (() => {
                 const isSelectedLiked = isPhoneSelected
@@ -1568,19 +1628,44 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-neutral-400 block mb-1">Заголовок шапки</label>
-                  <input
-                    type="text"
-                    value={profile.headerTitle}
-                    onChange={(e) =>
-                      onChangeSceneConfig((prev) => ({
-                        ...prev,
-                        profile: { ...prev.profile, headerTitle: e.target.value },
-                      }))
-                    }
-                    className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:border-indigo-500"
-                    placeholder="Social Media"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] text-neutral-400 block">Заголовок шапки</label>
+                    {(!profile.headerTitle || profile.headerTitle.trim().length === 0) && (
+                      <span className="text-[10px] text-amber-400 font-medium">Приховано</span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={profile.headerTitle}
+                      onChange={(e) =>
+                        onChangeSceneConfig((prev) => ({
+                          ...prev,
+                          profile: { ...prev.profile, headerTitle: e.target.value },
+                        }))
+                      }
+                      className="w-full px-2.5 py-1.5 pr-8 text-xs rounded-lg bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:border-indigo-500"
+                      placeholder="Social Media (порожньо = не малювати)"
+                    />
+                    {profile.headerTitle && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onChangeSceneConfig((prev) => ({
+                            ...prev,
+                            profile: { ...prev.profile, headerTitle: '' },
+                          }))
+                        }
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white p-0.5 text-xs transition"
+                        title="Очистити (приховати)"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-neutral-400 mt-1">
+                    Якщо пуста строка — текст і стрілочка не малюються на телефоні.
+                  </p>
                 </div>
               </div>
 

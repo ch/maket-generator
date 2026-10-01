@@ -146,6 +146,7 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
 
       {/* Card Base Container / Selection Highlight */}
       <rect
+        data-widget-card-base="true"
         x="0"
         y="0"
         width={baseW}

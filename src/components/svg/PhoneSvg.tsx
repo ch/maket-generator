@@ -94,6 +94,8 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
       {/* Selected Focus Outline */}
       {isSelected && (
         <rect
+          data-selection-outline="true"
+          className="widget-selection-outline"
           x="-3"
           y="-3"
           width={PHONE_BASE_WIDTH + 6}
@@ -166,27 +168,31 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
 
         {/* 2. Instagram Top App Header */}
         <g>
-          <text
-            x="20"
-            y="65"
-            fill="#111827"
-            fontFamily="'Playfair Display', Georgia, 'Times New Roman', serif"
-            fontSize="16.5"
-            fontWeight="600"
-            fontStyle="italic"
-            letterSpacing="-0.3px"
-          >
-            {profile.headerTitle || "Social Media"}
-          </text>
-          {/* Chevron down */}
-          <path
-            d="m109 60 3 3 3-3"
-            fill="none"
-            stroke="#111827"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          {profile.headerTitle && profile.headerTitle.trim().length > 0 && (
+            <g>
+              <text
+                x="20"
+                y="65"
+                fill="#111827"
+                fontFamily="'Playfair Display', Georgia, 'Times New Roman', serif"
+                fontSize="16.5"
+                fontWeight="600"
+                fontStyle="italic"
+                letterSpacing="-0.3px"
+              >
+                {profile.headerTitle}
+              </text>
+              {/* Chevron down positioned after header title */}
+              <path
+                d={`m${Math.min(235, Math.max(35, 20 + Math.round(profile.headerTitle.trim().length * 7.5) + 6))} 60 3 3 3-3`}
+                fill="none"
+                stroke="#111827"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </g>
+          )}
 
           {/* Activity Heart & Direct Messages Icons */}
           <g transform="translate(254, 50)" className="text-neutral-800">
