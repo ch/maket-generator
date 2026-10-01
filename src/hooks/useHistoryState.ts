@@ -1,19 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SceneConfig, HistorySnapshot } from '../types';
+import {
+  saveHistoryToDb,
+  loadHistoryFromDb,
+  SavedStateWrapper,
+} from '../utils/indexedDbStorage';
 
 const STORAGE_KEY = 'maket_generator_autosave_v2';
-const MAX_HISTORY_STEPS = 40;
-
-interface SavedStateWrapper {
-  history: HistorySnapshot[];
-  historyIndex: number;
-}
+const MAX_HISTORY_STEPS = 60; // Safely elevated with IndexedDB
 
 export function useHistoryState(
   initialSceneConfig: SceneConfig,
   initialPhoneImage: string | null = null
 ) {
-  // Load initial state from localStorage if available
+  // Synchronous quick load from localStorage if available to avoid layout shift on first frame
   const [historyState, setHistoryState] = useState<SavedStateWrapper>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -30,8 +30,8 @@ export function useHistoryState(
           return parsed;
         }
       }
-    } catch (err) {
-      console.warn('Could not load auto-saved scene from localStorage:', err);
+    } catch {
+      // ignore
     }
 
     const firstSnapshot: HistorySnapshot = {
@@ -58,6 +58,7 @@ export function useHistoryState(
   const [phoneImage, setPhoneImageState] = useState<string | null>(currentSnapshot.phoneImage);
   const [lastSaved, setLastSaved] = useState<number>(Date.now());
   const [isRestoredFromSave, setIsRestoredFromSave] = useState<boolean>(false);
+  const [isDbLoaded, setIsDbLoaded] = useState<boolean>(false);
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isNavigatingHistoryRef = useRef<boolean>(false);
@@ -70,41 +71,73 @@ export function useHistoryState(
     }
   }, [historyIndex, history]);
 
-  // Check if we loaded from existing autosave
+  // Load complete state from IndexedDB asynchronously on startup
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        setIsRestoredFromSave(true);
+    let isCancelled = false;
+
+    async function loadInitialDb() {
+      try {
+        const saved = await loadHistoryFromDb();
+        if (isCancelled || !saved) {
+          setIsDbLoaded(true);
+          return;
+        }
+
+        if (
+          Array.isArray(saved.history) &&
+          saved.history.length > 0 &&
+          typeof saved.historyIndex === 'number' &&
+          saved.historyIndex >= 0 &&
+          saved.historyIndex < saved.history.length
+        ) {
+          setHistoryState(saved);
+          setSceneConfigState(saved.history[saved.historyIndex].sceneConfig);
+          setPhoneImageState(saved.history[saved.historyIndex].phoneImage);
+          setIsRestoredFromSave(true);
+        }
+      } catch (err) {
+        console.warn('Could not restore from IndexedDB:', err);
+      } finally {
+        if (!isCancelled) {
+          setIsDbLoaded(true);
+        }
       }
-    } catch {
-      // ignore
     }
+
+    loadInitialDb();
+
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
-  // Helper to safely persist to localStorage with quota fallback
+  // Helper to reliably persist to IndexedDB (with best-effort localStorage fallback)
   const persistToStorage = useCallback((h: HistorySnapshot[], idx: number) => {
-    try {
-      const dataToSave: SavedStateWrapper = {
-        history: h,
-        historyIndex: idx,
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-      setLastSaved(Date.now());
-    } catch (err) {
-      console.warn('localStorage quota exceeded, trimming history for autosave:', err);
-      try {
-        // Fallback: prune older history or save only the current state
-        const prunedHistory = h.slice(Math.max(0, idx - 5), idx + 1);
-        const dataToSave: SavedStateWrapper = {
-          history: prunedHistory,
-          historyIndex: prunedHistory.length - 1,
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+    const dataToSave: SavedStateWrapper = {
+      history: h,
+      historyIndex: idx,
+    };
+
+    // 1. Primary persistence: IndexedDB (No 5MB limit, stores full history and high-res images)
+    saveHistoryToDb(dataToSave).then((success) => {
+      if (success) {
         setLastSaved(Date.now());
-      } catch (innerErr) {
-        console.error('Failed to autosave to localStorage:', innerErr);
       }
+    });
+
+    // 2. Secondary best-effort backup to localStorage
+    try {
+      // Save recent 10 snapshots to localStorage if within quota
+      const compactSlice = h.slice(Math.max(0, idx - 10), idx + 1);
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          history: compactSlice,
+          historyIndex: compactSlice.length - 1,
+        })
+      );
+    } catch {
+      // Intentionally ignore localStorage QuotaExceededError as IndexedDB is our source of truth
     }
   }, []);
 
@@ -133,7 +166,7 @@ export function useHistoryState(
         let updatedHistory = [...validHistory, newSnapshot];
         let newIndex = updatedHistory.length - 1;
 
-        // Cap max history steps to prevent runaway memory usage
+        // Cap max history steps to prevent runaway memory
         if (updatedHistory.length > MAX_HISTORY_STEPS) {
           const dropCount = updatedHistory.length - MAX_HISTORY_STEPS;
           updatedHistory = updatedHistory.slice(dropCount);
@@ -156,6 +189,7 @@ export function useHistoryState(
 
   // Debounce-commit live changes from sliders/inputs when inactive for 700ms
   useEffect(() => {
+    if (!isDbLoaded) return;
     if (isNavigatingHistoryRef.current) {
       isNavigatingHistoryRef.current = false;
       return;
@@ -181,9 +215,9 @@ export function useHistoryState(
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [sceneConfig, phoneImage, history, historyIndex, commitSnapshot]);
+  }, [sceneConfig, phoneImage, history, historyIndex, commitSnapshot, isDbLoaded]);
 
-  // Live updater for smooth 60fps drags/sliders (does NOT push a snapshot on every pixel move)
+  // Live updater for smooth 60fps drags/sliders
   const updateLiveConfig = useCallback(
     (updater: SceneConfig | ((prev: SceneConfig) => SceneConfig)) => {
       setSceneConfigState((prev) => {

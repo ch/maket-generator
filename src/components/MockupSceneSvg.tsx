@@ -9,6 +9,8 @@ interface MockupSceneSvgProps {
   onSelectSlot: (slotId: string) => void;
   onDragEnd?: () => void;
   onToggleLike?: (slotId: string) => void;
+  onDropImage?: (slotId: string, file: File) => void;
+  onDropAvatar?: (file: File) => void;
   selectedSlotId: string | null;
   phoneImage: string | null;
   svgRef?: React.RefObject<SVGSVGElement | null>;
@@ -20,6 +22,8 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
   onSelectSlot,
   onDragEnd,
   onToggleLike,
+  onDropImage,
+  onDropAvatar,
   selectedSlotId,
   phoneImage,
   svgRef: externalSvgRef,
@@ -205,6 +209,8 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
       onClick={handleBackgroundClick}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => e.preventDefault()}
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
@@ -272,6 +278,8 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
                   isLiked={sceneConfig.phoneIsLiked !== false}
                   onToggleLike={() => onToggleLike?.('phone')}
                   onSelectSlot={() => onSelectSlot('phone')}
+                  onDropImage={(file) => onDropImage?.('phone', file)}
+                  onDropAvatar={onDropAvatar}
                   filterId={phoneFilterId}
                   isInteractive={true}
                   isSelected={selectedSlotId === 'phone'}
@@ -299,6 +307,8 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
                   isLiked={card.isLiked ?? true}
                   onToggleLike={() => onToggleLike?.(card.id)}
                   onSelectSlot={() => onSelectSlot(card.id)}
+                  onDropImage={(file) => onDropImage?.(card.id, file)}
+                  onDropAvatar={onDropAvatar}
                   filterId={phoneFilterId}
                   isInteractive={true}
                   isSelected={selectedSlotId === card.id}
@@ -326,6 +336,8 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
                 isLiked={card.isLiked ?? false}
                 onToggleLike={() => onToggleLike?.(card.id)}
                 onSelectSlot={() => onSelectSlot(card.id)}
+                onDropImage={(file) => onDropImage?.(card.id, file)}
+                onDropAvatar={onDropAvatar}
                 filterId={cardFilterId}
                 isSelected={selectedSlotId === card.id}
               />

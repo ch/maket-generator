@@ -20,6 +20,7 @@ import {
   downloadBlob,
 } from './utils/exportSvg';
 import { DEMO_PHOTOS } from './data/demoContent';
+import { optimizeImageFile } from './utils/imageOptimizer';
 import {
   ZoomIn,
   ZoomOut,
@@ -204,6 +205,22 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, canUndo, canRedo]);
 
+  // Warn user before leaving or reloading page if there are active edits
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (historyTotal > 1 || historyIndex > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [historyTotal, historyIndex]);
+
   // Compute 100% full-screen fit size for canvas
   const padding = 20; // 20px padding from screen edges
   const availW = Math.max(100, viewportSize.width - padding * 2);
@@ -225,6 +242,42 @@ export default function App() {
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleDropImage = async (slotId: string, file: File) => {
+    try {
+      const optimized = await optimizeImageFile(file);
+      if (slotId === 'phone') {
+        setPhoneImage(optimized);
+        showToast('Фото телефону успішно оновлено! 📱');
+      } else {
+        handleUpdateCardImage(slotId, optimized);
+        const card = sceneConfig.cards.find((c) => c.id === slotId);
+        showToast(`Фото для «${card?.title || 'Віджет'}» оновлено! 📄`);
+      }
+    } catch (err) {
+      console.error('Error handling dropped image:', err);
+      showToast('Помилка обробки фотографії', 'error');
+    }
+  };
+
+  const handleDropAvatar = async (file: File) => {
+    try {
+      const optimized = await optimizeImageFile(file, 600, 0.9);
+      const nextConfig = {
+        ...sceneConfig,
+        profile: {
+          ...sceneConfig.profile,
+          avatarUrl: optimized,
+        },
+      };
+      setSceneConfig(nextConfig);
+      commitSnapshot(nextConfig, phoneImage, 'Оновлено аватар / логотип');
+      showToast('Логотип / аватар успішно оновлено! ✨');
+    } catch (err) {
+      console.error('Error handling dropped avatar:', err);
+      showToast('Помилка обробки логотипу', 'error');
+    }
   };
 
   const handleUpdateTransform = (slotId: string, transform: WidgetTransform) => {
@@ -625,9 +678,12 @@ export default function App() {
             </span>
 
             {/* Auto-saved Live Indicator */}
-            <div className="hidden md:flex items-center gap-1.5 text-[11px] text-emerald-400/90 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+            <div
+              className="hidden md:flex items-center gap-1.5 text-[11px] text-emerald-400/90 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20"
+              title="Історія та фотографії автоматично зберігаються в IndexedDB (без обмеження 5 МБ)"
+            >
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{isRestoredFromSave ? 'Збережено' : 'Автозбережено'}</span>
+              <span>{isRestoredFromSave ? 'Збережено в IndexedDB' : 'Автозбережено'}</span>
             </div>
           </div>
 
@@ -705,6 +761,8 @@ export default function App() {
               onDragEnd={handleCanvasDragEnd}
               onToggleLike={handleToggleLike}
               onSelectSlot={setSelectedSlotId}
+              onDropImage={handleDropImage}
+              onDropAvatar={handleDropAvatar}
               selectedSlotId={selectedSlotId}
               phoneImage={phoneImage}
             />

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { WidgetTransform, MockupProfile, WidgetType } from '../../types';
 import { SvgAvatar } from './SvgAvatar';
 import {
@@ -22,6 +22,8 @@ interface PostCardSvgProps {
   isLiked?: boolean;
   onToggleLike?: () => void;
   onSelectSlot?: () => void;
+  onDropImage?: (file: File) => void;
+  onDropAvatar?: (file: File) => void;
   filterId?: string;
   isSelected?: boolean;
 }
@@ -58,9 +60,14 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
   isLiked = false,
   onToggleLike,
   onSelectSlot,
+  onDropImage,
+  onDropAvatar,
   filterId = "card-drop-shadow",
   isSelected = false,
 }) => {
+  const [isCardDragOver, setIsCardDragOver] = useState(false);
+  const [isAvatarDragOver, setIsAvatarDragOver] = useState(false);
+
   const { width: baseW, height: baseH } = getWidgetBaseDimensions(widgetType);
   const { x, y, scale, rotation } = transform;
   const centerX = baseW / 2;
@@ -74,6 +81,31 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
       transform={`translate(${x}, ${y}) rotate(${rotation}, ${centerX}, ${centerY}) scale(${scale})`}
       className="select-none cursor-pointer transition-transform duration-75"
       onClick={onSelectSlot}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'copy';
+        setIsCardDragOver(true);
+      }}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsCardDragOver(true);
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsCardDragOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsCardDragOver(false);
+        const files = e.dataTransfer.files;
+        if (files && files[0] && files[0].type.startsWith('image/')) {
+          onDropImage?.(files[0]);
+        }
+      }}
     >
       <defs>
         <clipPath id={clipId}>
@@ -200,15 +232,56 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
 
           {/* Author Footer */}
           <g transform="translate(24, 252)">
-            <SvgAvatar
-              x={18}
-              y={18}
-              r={18}
-              avatarUrl={imageUrl || profile.avatarUrl}
-              monogram={profile.avatarMonogram}
-              bgColor={profile.avatarBgColor}
-              clipId={avatarClipId}
-            />
+            <g
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'copy';
+                setIsAvatarDragOver(true);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(false);
+                const files = e.dataTransfer.files;
+                if (files && files[0] && files[0].type.startsWith('image/')) {
+                  onDropAvatar?.(files[0]);
+                }
+              }}
+              className="cursor-pointer"
+            >
+              <SvgAvatar
+                x={18}
+                y={18}
+                r={18}
+                avatarUrl={imageUrl || profile.avatarUrl}
+                monogram={profile.avatarMonogram}
+                bgColor={profile.avatarBgColor}
+                clipId={avatarClipId}
+              />
+              {isAvatarDragOver && (
+                <circle
+                  cx={18}
+                  cy={18}
+                  r={21}
+                  fill="#4F46E5"
+                  fillOpacity="0.35"
+                  stroke="#6366F1"
+                  strokeWidth="2.5"
+                  strokeDasharray="4 3"
+                />
+              )}
+            </g>
             <g transform="translate(46, 12)">
               <text
                 x="0"
@@ -240,23 +313,64 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
           {/* Header */}
           <g transform="translate(14, 14)">
             {/* Story Gradient Ring */}
-            <circle
-              cx="13"
-              cy="13"
-              r="13.5"
-              fill="none"
-              stroke={`url(#story-ring-${id})`}
-              strokeWidth="2"
-            />
-            <SvgAvatar
-              x={13}
-              y={13}
-              r={10.5}
-              avatarUrl={profile.avatarUrl}
-              monogram={profile.avatarMonogram}
-              bgColor={profile.avatarBgColor}
-              clipId={avatarClipId}
-            />
+            <g
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'copy';
+                setIsAvatarDragOver(true);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(false);
+                const files = e.dataTransfer.files;
+                if (files && files[0] && files[0].type.startsWith('image/')) {
+                  onDropAvatar?.(files[0]);
+                }
+              }}
+              className="cursor-pointer"
+            >
+              <circle
+                cx="13"
+                cy="13"
+                r="13.5"
+                fill="none"
+                stroke={`url(#story-ring-${id})`}
+                strokeWidth="2"
+              />
+              <SvgAvatar
+                x={13}
+                y={13}
+                r={10.5}
+                avatarUrl={profile.avatarUrl}
+                monogram={profile.avatarMonogram}
+                bgColor={profile.avatarBgColor}
+                clipId={avatarClipId}
+              />
+              {isAvatarDragOver && (
+                <circle
+                  cx="13"
+                  cy="13"
+                  r="16"
+                  fill="#4F46E5"
+                  fillOpacity="0.35"
+                  stroke="#6366F1"
+                  strokeWidth="2"
+                  strokeDasharray="3 3"
+                />
+              )}
+            </g>
             <text
               x="34"
               y="16"
@@ -394,15 +508,56 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
 
           {/* Square Bottom Meta Bar */}
           <g transform={`translate(16, ${baseH - 42})`}>
-            <SvgAvatar
-              x={13}
-              y={13}
-              r={11}
-              avatarUrl={profile.avatarUrl}
-              monogram={profile.avatarMonogram}
-              bgColor={profile.avatarBgColor}
-              clipId={avatarClipId}
-            />
+            <g
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'copy';
+                setIsAvatarDragOver(true);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(false);
+                const files = e.dataTransfer.files;
+                if (files && files[0] && files[0].type.startsWith('image/')) {
+                  onDropAvatar?.(files[0]);
+                }
+              }}
+              className="cursor-pointer"
+            >
+              <SvgAvatar
+                x={13}
+                y={13}
+                r={11}
+                avatarUrl={profile.avatarUrl}
+                monogram={profile.avatarMonogram}
+                bgColor={profile.avatarBgColor}
+                clipId={avatarClipId}
+              />
+              {isAvatarDragOver && (
+                <circle
+                  cx={13}
+                  cy={13}
+                  r={14}
+                  fill="#4F46E5"
+                  fillOpacity="0.35"
+                  stroke="#6366F1"
+                  strokeWidth="2"
+                  strokeDasharray="3 3"
+                />
+              )}
+            </g>
             <text
               x="32"
               y="17"
@@ -439,15 +594,56 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
         <g>
           {/* 1. Card Header */}
           <g>
-            <SvgAvatar
-              x={26}
-              y={22}
-              r={11.5}
-              avatarUrl={profile.avatarUrl}
-              monogram={profile.avatarMonogram}
-              bgColor={profile.avatarBgColor}
-              clipId={avatarClipId}
-            />
+            <g
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'copy';
+                setIsAvatarDragOver(true);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsAvatarDragOver(false);
+                const files = e.dataTransfer.files;
+                if (files && files[0] && files[0].type.startsWith('image/')) {
+                  onDropAvatar?.(files[0]);
+                }
+              }}
+              className="cursor-pointer"
+            >
+              <SvgAvatar
+                x={26}
+                y={22}
+                r={11.5}
+                avatarUrl={profile.avatarUrl}
+                monogram={profile.avatarMonogram}
+                bgColor={profile.avatarBgColor}
+                clipId={avatarClipId}
+              />
+              {isAvatarDragOver && (
+                <circle
+                  cx={26}
+                  cy={22}
+                  r={14.5}
+                  fill="#4F46E5"
+                  fillOpacity="0.35"
+                  stroke="#6366F1"
+                  strokeWidth="2"
+                  strokeDasharray="3 3"
+                />
+              )}
+            </g>
             {/* Username */}
             <text
               x="44"
@@ -561,6 +757,30 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
             <g transform="translate(226, 0)">
               <SvgBookmark size={18} stroke="#262626" strokeWidth={1.8} />
             </g>
+          </g>
+        </g>
+      )}
+
+      {/* Card Drag & Drop Visual Overlay Indicator */}
+      {isCardDragOver && (
+        <g>
+          <rect
+            x="0"
+            y="0"
+            width={baseW}
+            height={baseH}
+            rx={widgetType === 'story' ? 18 : 14}
+            fill="#4F46E5"
+            fillOpacity="0.32"
+            stroke="#6366F1"
+            strokeWidth="3.5"
+            strokeDasharray="8 6"
+          />
+          <g transform={`translate(${baseW / 2}, ${baseH / 2})`}>
+            <rect x="-80" y="-18" width="160" height="36" rx="18" fill="#0F172A" stroke="#818CF8" strokeWidth="1.5" />
+            <text x="0" y="5" textAnchor="middle" fill="#FFFFFF" fontSize="12.5" fontWeight="600">
+              + Відпустіть фото
+            </text>
           </g>
         </g>
       )}

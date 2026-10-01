@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { WidgetTransform, MockupProfile } from '../../types';
 import { SvgAvatar } from './SvgAvatar';
 import {
@@ -22,6 +22,8 @@ interface PhoneSvgProps {
   isLiked?: boolean;
   onToggleLike?: () => void;
   onSelectSlot?: () => void;
+  onDropImage?: (file: File) => void;
+  onDropAvatar?: (file: File) => void;
   filterId?: string;
   isInteractive?: boolean;
   isSelected?: boolean;
@@ -38,10 +40,15 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
   isLiked = true,
   onToggleLike,
   onSelectSlot,
+  onDropImage,
+  onDropAvatar,
   filterId = "phone-drop-shadow",
   isInteractive = true,
   isSelected = false,
 }) => {
+  const [isPhotoDragOver, setIsPhotoDragOver] = useState(false);
+  const [isAvatarDragOver, setIsAvatarDragOver] = useState(false);
+
   const { x, y, scale, rotation } = transform;
   const centerX = PHONE_BASE_WIDTH / 2;
   const centerY = PHONE_BASE_HEIGHT / 2;
@@ -192,15 +199,65 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
 
         {/* 3. Instagram Post Header Row */}
         <g>
-          <SvgAvatar
-            x={34}
-            y={97}
-            r={13}
-            avatarUrl={profile.avatarUrl}
-            monogram={profile.avatarMonogram}
-            bgColor={profile.avatarBgColor}
-            clipId="phone-post-avatar-clip"
-          />
+          {/* Interactive Drag & Drop Avatar Area */}
+          <g
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = 'copy';
+              setIsAvatarDragOver(true);
+            }}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsAvatarDragOver(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsAvatarDragOver(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsAvatarDragOver(false);
+              const files = e.dataTransfer.files;
+              if (files && files[0] && files[0].type.startsWith('image/')) {
+                onDropAvatar?.(files[0]);
+              }
+            }}
+            className="cursor-pointer"
+          >
+            <SvgAvatar
+              x={34}
+              y={97}
+              r={13}
+              avatarUrl={profile.avatarUrl}
+              monogram={profile.avatarMonogram}
+              bgColor={profile.avatarBgColor}
+              clipId="phone-post-avatar-clip"
+            />
+            {isAvatarDragOver && (
+              <g>
+                <circle
+                  cx={34}
+                  cy={97}
+                  r={16}
+                  fill="#4F46E5"
+                  fillOpacity="0.4"
+                  stroke="#6366F1"
+                  strokeWidth="2.5"
+                  strokeDasharray="4 3"
+                />
+                <g transform="translate(34, 126)">
+                  <rect x="-35" y="-9" width="70" height="18" rx="9" fill="#0F172A" stroke="#818CF8" strokeWidth="1" />
+                  <text x="0" y="4" textAnchor="middle" fill="#FFFFFF" fontSize="9" fontWeight="600">
+                    + Лого
+                  </text>
+                </g>
+              </g>
+            )}
+          </g>
           {/* Username */}
           <text
             x="54"
@@ -219,7 +276,35 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
         </g>
 
         {/* 4. Portrait 9:16 Photo Content Area */}
-        <g onClick={onSelectSlot} className="cursor-pointer transition-opacity hover:opacity-95">
+        <g
+          onClick={onSelectSlot}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+            setIsPhotoDragOver(true);
+          }}
+          onDragEnter={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsPhotoDragOver(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsPhotoDragOver(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsPhotoDragOver(false);
+            const files = e.dataTransfer.files;
+            if (files && files[0] && files[0].type.startsWith('image/')) {
+              onDropImage?.(files[0]);
+            }
+          }}
+          className="cursor-pointer transition-opacity hover:opacity-95"
+        >
           {imageUrl ? (
             <g clipPath={`url(#${photoClipId})`}>
               <image
@@ -298,6 +383,30 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
             stroke="rgba(0,0,0,0.06)"
             strokeWidth="1"
           />
+
+          {/* Drag & Drop Visual Overlay Indicator */}
+          {isPhotoDragOver && (
+            <g>
+              <rect
+                x="18"
+                y="118"
+                width="298"
+                height="414"
+                rx="6"
+                fill="#4F46E5"
+                fillOpacity="0.32"
+                stroke="#6366F1"
+                strokeWidth="3.5"
+                strokeDasharray="8 6"
+              />
+              <g transform="translate(167, 325)">
+                <rect x="-85" y="-20" width="170" height="40" rx="20" fill="#0F172A" stroke="#818CF8" strokeWidth="1.5" />
+                <text x="0" y="5" textAnchor="middle" fill="#FFFFFF" fontSize="13" fontWeight="600">
+                  + Відпустіть фото
+                </text>
+              </g>
+            </g>
+          )}
         </g>
 
         {/* 5. Post Action Row (Heart, Comment, Share, Bookmark) */}
@@ -410,7 +519,35 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
             <SvgReels size={20} stroke="#111827" strokeWidth={1.9} />
           </g>
           {/* Mini profile avatar */}
-          <g transform="translate(286, 17)">
+          <g
+            transform="translate(286, 17)"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = 'copy';
+              setIsAvatarDragOver(true);
+            }}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsAvatarDragOver(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsAvatarDragOver(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsAvatarDragOver(false);
+              const files = e.dataTransfer.files;
+              if (files && files[0] && files[0].type.startsWith('image/')) {
+                onDropAvatar?.(files[0]);
+              }
+            }}
+            className="cursor-pointer"
+          >
             <SvgAvatar
               x={0}
               y={0}

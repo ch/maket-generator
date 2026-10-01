@@ -45,6 +45,8 @@ import {
   Heart,
 } from 'lucide-react';
 import { PresetsTab } from './PresetsTab';
+import { HexColorPickerInput } from './HexColorPickerInput';
+import { optimizeImageFile } from '../utils/imageOptimizer';
 
 interface SidebarControlsProps {
   sceneConfig: SceneConfig;
@@ -140,25 +142,28 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
     }));
   };
 
+  const [isAvatarBoxDragOver, setIsAvatarBoxDragOver] = useState(false);
+
   // Batch image upload
-  const handleBatchUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBatchUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const fileList = Array.from(files).slice(0, 5);
-    fileList.forEach((file, index) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
+    for (let index = 0; index < fileList.length; index++) {
+      const file = fileList[index];
+      try {
+        const result = await optimizeImageFile(file);
         if (index === 0) {
           onUpdatePhoneImage(result);
         } else {
           const cardId = `card-${index}`;
           onUpdateCardImage(cardId, result);
         }
-      };
-      reader.readAsDataURL(file);
-    });
+      } catch (err) {
+        console.error('Batch upload error:', err);
+      }
+    }
 
     if (batchFileInputRef.current) {
       batchFileInputRef.current.value = '';
@@ -166,18 +171,39 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
   };
 
   // Avatar upload
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
+    try {
+      const result = await optimizeImageFile(file, 600, 0.9);
       onChangeSceneConfig((prev) => ({
         ...prev,
         profile: { ...prev.profile, avatarUrl: result },
       }));
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+    }
+  };
+
+  // Direct avatar drop handler for sidebar avatar box
+  const handleAvatarDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsAvatarBoxDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files && files[0] && files[0].type.startsWith('image/')) {
+      try {
+        const result = await optimizeImageFile(files[0], 600, 0.9);
+        onChangeSceneConfig((prev) => ({
+          ...prev,
+          profile: { ...prev.profile, avatarUrl: result },
+        }));
+        onShowToast('Аватар успішно оновлено!');
+      } catch (err) {
+        console.error('Avatar drop error:', err);
+        onShowToast('Помилка завантаження фото', 'error');
+      }
+    }
   };
 
   const handleCopy = () => {
@@ -533,28 +559,43 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
               </div>
 
               {/* Custom color picker */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-neutral-800/50 border border-neutral-700/70">
-                <div>
-                  <span className="text-xs font-medium text-neutral-200 block">Довільний колір</span>
-                  <span className="text-[11px] text-neutral-400">Виберіть будь-який відтінок</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
+              <div className="space-y-3 p-3.5 rounded-xl bg-neutral-800/50 border border-neutral-700/70">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-medium text-neutral-200 block">Довільний колір</span>
+                    <span className="text-[11px] text-neutral-400">Введіть або скопіюйте HEX-код</span>
+                  </div>
+                  <HexColorPickerInput
                     value={sceneConfig.backgroundColor}
-                    onChange={(e) =>
+                    onChange={(hex) =>
                       onChangeSceneConfig((prev) => ({
                         ...prev,
-                        backgroundType: 'color',
-                        backgroundColor: e.target.value,
+                        backgroundColor: hex,
                       }))
                     }
-                    className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent"
+                    label="Колір фону"
                   />
-                  <span className="font-mono text-xs text-neutral-300 bg-neutral-900 px-2 py-1 rounded border border-neutral-700">
-                    {sceneConfig.backgroundColor}
-                  </span>
                 </div>
+
+                {/* If gradient, also show second color */}
+                {(sceneConfig.backgroundType === 'linear-gradient' || sceneConfig.backgroundType === 'radial-gradient') && (
+                  <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-neutral-700/50">
+                    <div>
+                      <span className="text-xs font-medium text-neutral-200 block">Другий колір градієнта</span>
+                      <span className="text-[11px] text-neutral-400">Кінцевий відтінок</span>
+                    </div>
+                    <HexColorPickerInput
+                      value={sceneConfig.backgroundColor2}
+                      onChange={(hex) =>
+                        onChangeSceneConfig((prev) => ({
+                          ...prev,
+                          backgroundColor2: hex,
+                        }))
+                      }
+                      label="Другий колір градієнта"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1256,7 +1297,32 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-14 rounded-lg bg-neutral-900 border border-neutral-700 overflow-hidden flex items-center justify-center shrink-0">
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file && file.type.startsWith('image/')) {
+                        try {
+                          const res = await optimizeImageFile(file);
+                          if (isPhoneSelected) {
+                            onUpdatePhoneImage(res);
+                          } else {
+                            onUpdateCardImage(selectedSlotId, res);
+                          }
+                          onShowToast('Фото успішно оновлено!');
+                        } catch (err) {
+                          console.error(err);
+                        }
+                      }
+                    }}
+                    className="w-12 h-14 rounded-lg bg-neutral-900 border border-neutral-700 hover:border-indigo-500 overflow-hidden flex items-center justify-center shrink-0 cursor-pointer transition"
+                    title="Перетягніть фото сюди або виберіть файл"
+                  >
                     {currentSlotInfo.image ? (
                       <img src={currentSlotInfo.image} alt="Preview" className="w-full h-full object-cover" />
                     ) : (
@@ -1270,19 +1336,19 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                       accept="image/*"
                       id={`widget-inspector-image-${selectedSlotId}`}
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => {
-                            const res = ev.target?.result as string;
+                          try {
+                            const res = await optimizeImageFile(file);
                             if (isPhoneSelected) {
                               onUpdatePhoneImage(res);
                             } else {
                               onUpdateCardImage(selectedSlotId, res);
                             }
-                          };
-                          reader.readAsDataURL(file);
+                          } catch (err) {
+                            console.error(err);
+                          }
                         }
                       }}
                     />
@@ -1519,8 +1585,31 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
               </div>
 
               {/* Avatar Settings */}
-              <div className="flex items-center gap-3 p-2.5 rounded-lg bg-neutral-800/60 border border-neutral-700/60">
-                <div className="relative group w-10 h-10 rounded-full overflow-hidden flex items-center justify-center shrink-0 border border-neutral-600">
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-neutral-800/60 border border-neutral-700/60">
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsAvatarBoxDragOver(true);
+                  }}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsAvatarBoxDragOver(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsAvatarBoxDragOver(false);
+                  }}
+                  onDrop={handleAvatarDrop}
+                  className={`relative group w-12 h-12 rounded-full overflow-hidden flex items-center justify-center shrink-0 border transition-all ${
+                    isAvatarBoxDragOver
+                      ? 'border-indigo-500 ring-4 ring-indigo-500/30 scale-105'
+                      : 'border-neutral-600 hover:border-neutral-400'
+                  }`}
+                  title="Перетягніть сюди файл логотипу / аватара"
+                >
                   {profile.avatarUrl ? (
                     <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -1531,9 +1620,14 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                       {profile.avatarMonogram}
                     </div>
                   )}
+                  {isAvatarBoxDragOver && (
+                    <div className="absolute inset-0 bg-indigo-600/40 flex items-center justify-center text-[10px] text-white font-bold">
+                      + Лого
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex-1 space-y-1">
+                <div className="flex-1 space-y-2">
                   <div className="flex items-center gap-2">
                     <input
                       ref={avatarFileInputRef}
@@ -1545,7 +1639,7 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                     />
                     <label
                       htmlFor="avatar-file-input"
-                      className="text-[11px] px-2 py-1 rounded bg-neutral-700 hover:bg-neutral-600 text-neutral-200 cursor-pointer font-medium"
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-neutral-700 hover:bg-neutral-600 text-neutral-200 cursor-pointer font-medium transition"
                     >
                       {profile.avatarUrl ? 'Змінити аватар' : 'Завантажити фото'}
                     </label>
@@ -1564,33 +1658,33 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                     )}
                   </div>
                   {!profile.avatarUrl && (
-                    <div className="flex items-center gap-2 pt-1">
-                      <input
-                        type="text"
-                        maxLength={2}
-                        value={profile.avatarMonogram}
-                        onChange={(e) =>
-                          onChangeSceneConfig((prev) => ({
-                            ...prev,
-                            profile: { ...prev.profile, avatarMonogram: e.target.value.toUpperCase() },
-                          }))
-                        }
-                        className="w-8 px-1 py-0.5 text-center text-xs rounded bg-neutral-700 border border-neutral-600 text-white"
-                        title="Літера монограми"
-                      />
-                      <input
-                        type="color"
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-neutral-400">Літера:</span>
+                        <input
+                          type="text"
+                          maxLength={2}
+                          value={profile.avatarMonogram}
+                          onChange={(e) =>
+                            onChangeSceneConfig((prev) => ({
+                              ...prev,
+                              profile: { ...prev.profile, avatarMonogram: e.target.value.toUpperCase() },
+                            }))
+                          }
+                          className="w-7 px-1 py-0.5 text-center text-xs rounded bg-neutral-700 border border-neutral-600 text-white font-bold"
+                          title="Літера монограми"
+                        />
+                      </div>
+                      <HexColorPickerInput
                         value={profile.avatarBgColor}
-                        onChange={(e) =>
+                        onChange={(hex) =>
                           onChangeSceneConfig((prev) => ({
                             ...prev,
-                            profile: { ...prev.profile, avatarBgColor: e.target.value },
+                            profile: { ...prev.profile, avatarBgColor: hex },
                           }))
                         }
-                        className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent"
-                        title="Колір кружечка"
+                        label="Колір монограми"
                       />
-                      <span className="text-[10px] text-neutral-400">Монограма / Колір</span>
                     </div>
                   )}
                 </div>
@@ -1696,12 +1790,15 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                       accept="image/*"
                       id="phone-image-input"
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (ev) => onUpdatePhoneImage(ev.target?.result as string);
-                          reader.readAsDataURL(file);
+                          try {
+                            const res = await optimizeImageFile(file);
+                            onUpdatePhoneImage(res);
+                          } catch (err) {
+                            console.error(err);
+                          }
                         }
                       }}
                     />
@@ -1757,12 +1854,15 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                         accept="image/*"
                         id={`card-input-${card.id}`}
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => onUpdateCardImage(card.id, ev.target?.result as string);
-                            reader.readAsDataURL(file);
+                            try {
+                              const res = await optimizeImageFile(file);
+                              onUpdateCardImage(card.id, res);
+                            } catch (err) {
+                              console.error(err);
+                            }
                           }
                         }}
                       />
