@@ -8,6 +8,7 @@ interface MockupSceneSvgProps {
   onUpdateTransform: (slotId: string, transform: WidgetTransform) => void;
   onSelectSlot: (slotId: string) => void;
   onDragEnd?: () => void;
+  onToggleLike?: (slotId: string) => void;
   selectedSlotId: string | null;
   phoneImage: string | null;
   svgRef?: React.RefObject<SVGSVGElement | null>;
@@ -18,6 +19,7 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
   onUpdateTransform,
   onSelectSlot,
   onDragEnd,
+  onToggleLike,
   selectedSlotId,
   phoneImage,
   svgRef: externalSvgRef,
@@ -267,6 +269,8 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
                   transform={phoneTransform}
                   profile={profile}
                   imageUrl={phoneImage}
+                  isLiked={sceneConfig.phoneIsLiked !== false}
+                  onToggleLike={() => onToggleLike?.('phone')}
                   onSelectSlot={() => onSelectSlot('phone')}
                   filterId={phoneFilterId}
                   isInteractive={true}
@@ -292,6 +296,8 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
                   transform={card.transform}
                   profile={profile}
                   imageUrl={card.imageUrl || phoneImage}
+                  isLiked={card.isLiked ?? true}
+                  onToggleLike={() => onToggleLike?.(card.id)}
                   onSelectSlot={() => onSelectSlot(card.id)}
                   filterId={phoneFilterId}
                   isInteractive={true}
@@ -317,6 +323,8 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
                 widgetType={card.widgetType}
                 customText={card.customText}
                 customAuthor={card.customAuthor}
+                isLiked={card.isLiked ?? false}
+                onToggleLike={() => onToggleLike?.(card.id)}
                 onSelectSlot={() => onSelectSlot(card.id)}
                 filterId={cardFilterId}
                 isSelected={selectedSlotId === card.id}

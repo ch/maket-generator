@@ -19,6 +19,8 @@ interface PhoneSvgProps {
   transform: WidgetTransform;
   profile: MockupProfile;
   imageUrl: string | null;
+  isLiked?: boolean;
+  onToggleLike?: () => void;
   onSelectSlot?: () => void;
   filterId?: string;
   isInteractive?: boolean;
@@ -33,6 +35,8 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
   transform,
   profile,
   imageUrl,
+  isLiked = true,
+  onToggleLike,
   onSelectSlot,
   filterId = "phone-drop-shadow",
   isInteractive = true,
@@ -298,9 +302,22 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
 
         {/* 5. Post Action Row (Heart, Comment, Share, Bookmark) */}
         <g transform="translate(19, 542)">
-          {/* Heart icon - red filled as in Instagram reference */}
-          <g>
-            <SvgHeart size={19} fill="#ED4956" stroke="#ED4956" strokeWidth={1} />
+          {/* Heart icon - red filled when isLiked, outline otherwise */}
+          <g
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleLike?.();
+            }}
+            className="cursor-pointer transition-transform hover:scale-115 active:scale-90"
+            style={{ cursor: 'pointer' }}
+          >
+            <SvgHeart
+              size={19}
+              fill={isLiked ? "#ED4956" : "none"}
+              stroke={isLiked ? "#ED4956" : "#262626"}
+              strokeWidth={isLiked ? 1 : 1.8}
+            />
           </g>
           <g transform="translate(28, 0)">
             <SvgComment size={19} stroke="#262626" strokeWidth={1.8} />

@@ -52,12 +52,14 @@ const INITIAL_SCENE_CONFIG: SceneConfig = {
     scale: 1.0,
     rotation: 0,
   },
+  phoneIsLiked: true,
   cards: [
     {
       id: 'card-1',
       title: 'Верхня по центру',
       imageUrl: null,
       placeholderText: 'PLACEHOLDER - INSERT YOUR DESIGN OR IMAGE',
+      isLiked: false,
       transform: {
         x: 620,
         y: 160,
@@ -243,6 +245,38 @@ export default function App() {
     commitSnapshot(sceneConfig, phoneImage, 'Переміщення / поворот віджета');
   };
 
+  const handleToggleLike = (slotId: string) => {
+    if (slotId === 'phone') {
+      const nextLiked = sceneConfig.phoneIsLiked === false ? true : false;
+      const nextConfig = {
+        ...sceneConfig,
+        phoneIsLiked: nextLiked,
+      };
+      setSceneConfig(nextConfig);
+      commitSnapshot(
+        nextConfig,
+        phoneImage,
+        nextLiked ? 'Сердечко телефону: Лайкнуто' : 'Сердечко телефону: Без лайка'
+      );
+      showToast(nextLiked ? 'Сердечко телефону: Лайкнуто ❤️' : 'Сердечко телефону: Без лайка 🤍');
+    } else {
+      const card = sceneConfig.cards.find((c) => c.id === slotId);
+      if (!card) return;
+      const nextLiked = !card.isLiked;
+      const nextConfig = {
+        ...sceneConfig,
+        cards: sceneConfig.cards.map((c) => (c.id === slotId ? { ...c, isLiked: nextLiked } : c)),
+      };
+      setSceneConfig(nextConfig);
+      commitSnapshot(
+        nextConfig,
+        phoneImage,
+        nextLiked ? `Лайкнуто: ${card.title}` : `Без лайка: ${card.title}`
+      );
+      showToast(nextLiked ? `«${card.title}»: Лайкнуто ❤️` : `«${card.title}»: Без лайка 🤍`);
+    }
+  };
+
   const handleAddWidget = (title: string, widgetType: WidgetType) => {
     const newId = `widget-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
     const baseDims = getWidgetBaseDimensions(widgetType);
@@ -268,6 +302,7 @@ export default function App() {
       widgetType,
       imageUrl: null,
       placeholderText: 'PLACEHOLDER - INSERT YOUR DESIGN OR IMAGE',
+      isLiked: widgetType === 'phone' ? true : false,
       customText:
         widgetType === 'quote'
           ? '«Неймовірна увага до деталей та бездоганний естетичний стиль бренду!»'
@@ -668,6 +703,7 @@ export default function App() {
               sceneConfig={sceneConfig}
               onUpdateTransform={handleUpdateTransform}
               onDragEnd={handleCanvasDragEnd}
+              onToggleLike={handleToggleLike}
               onSelectSlot={setSelectedSlotId}
               selectedSlotId={selectedSlotId}
               phoneImage={phoneImage}

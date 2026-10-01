@@ -19,6 +19,8 @@ interface PostCardSvgProps {
   widgetType?: WidgetType;
   customText?: string;
   customAuthor?: string;
+  isLiked?: boolean;
+  onToggleLike?: () => void;
   onSelectSlot?: () => void;
   filterId?: string;
   isSelected?: boolean;
@@ -53,6 +55,8 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
   widgetType = 'post',
   customText,
   customAuthor,
+  isLiked = false,
+  onToggleLike,
   onSelectSlot,
   filterId = "card-drop-shadow",
   isSelected = false,
@@ -325,8 +329,22 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
             >
               Надіслати повідомлення...
             </text>
-            <g transform="translate(198, 6)">
-              <SvgHeart size={18} stroke="#4B5563" strokeWidth={1.8} />
+            <g
+              transform="translate(198, 6)"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleLike?.();
+              }}
+              className="cursor-pointer transition-transform hover:scale-115 active:scale-90"
+              style={{ cursor: 'pointer' }}
+            >
+              <SvgHeart
+                size={18}
+                fill={isLiked ? "#ED4956" : "none"}
+                stroke={isLiked ? "#ED4956" : "#4B5563"}
+                strokeWidth={isLiked ? 1 : 1.8}
+              />
             </g>
           </g>
         </g>
@@ -395,8 +413,22 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
             >
               {profile.username}
             </text>
-            <g transform={`translate(${baseW - 56}, 4)`}>
-              <SvgHeart size={18} stroke="#262626" strokeWidth={1.8} />
+            <g
+              transform={`translate(${baseW - 56}, 4)`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleLike?.();
+              }}
+              className="cursor-pointer transition-transform hover:scale-115 active:scale-90"
+              style={{ cursor: 'pointer' }}
+            >
+              <SvgHeart
+                size={18}
+                fill={isLiked ? "#ED4956" : "none"}
+                stroke={isLiked ? "#ED4956" : "#262626"}
+                strokeWidth={isLiked ? 1 : 1.8}
+              />
             </g>
           </g>
         </g>
@@ -504,8 +536,21 @@ export const PostCardSvg: React.FC<PostCardSvgProps> = ({
 
           {/* 3. Card Footer Action Bar */}
           <g transform="translate(14, 363)">
-            <g>
-              <SvgHeart size={18} stroke="#262626" strokeWidth={1.8} />
+            <g
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleLike?.();
+              }}
+              className="cursor-pointer transition-transform hover:scale-115 active:scale-90"
+              style={{ cursor: 'pointer' }}
+            >
+              <SvgHeart
+                size={18}
+                fill={isLiked ? "#ED4956" : "none"}
+                stroke={isLiked ? "#ED4956" : "#262626"}
+                strokeWidth={isLiked ? 1 : 1.8}
+              />
             </g>
             <g transform="translate(24, 0)">
               <SvgComment size={18} stroke="#262626" strokeWidth={1.8} />

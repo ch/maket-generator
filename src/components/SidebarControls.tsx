@@ -42,6 +42,7 @@ import {
   Trash2,
   Plus,
   Quote,
+  Heart,
 } from 'lucide-react';
 import { PresetsTab } from './PresetsTab';
 
@@ -844,6 +845,84 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                 </div>
               )}
 
+              {/* HEART / LIKE TOGGLE CONTROL (ЛАЙКНУТО ЧИ НІ) */}
+              {(isPhoneSelected || selectedCard?.widgetType !== 'quote') && (() => {
+                const isSelectedLiked = isPhoneSelected
+                  ? sceneConfig.phoneIsLiked !== false
+                  : (selectedCard?.isLiked ?? false);
+
+                const handleToggleCurrentLiked = (val: boolean) => {
+                  if (isPhoneSelected) {
+                    onChangeSceneConfig((prev) => ({
+                      ...prev,
+                      phoneIsLiked: val,
+                    }));
+                  } else if (selectedCard) {
+                    onChangeSceneConfig((prev) => ({
+                      ...prev,
+                      cards: prev.cards.map((c) =>
+                        c.id === selectedCard.id ? { ...c, isLiked: val } : c
+                      ),
+                    }));
+                  }
+                };
+
+                return (
+                  <div className="p-3.5 rounded-xl bg-neutral-800/50 border border-neutral-700/70 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-neutral-200 flex items-center gap-1.5">
+                        <Heart
+                          size={14}
+                          className={isSelectedLiked ? 'text-rose-500 fill-rose-500' : 'text-neutral-400'}
+                        />
+                        Налаштування сердечка (Лайк)
+                      </span>
+                      <span
+                        className={`text-[10px] font-medium px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                          isSelectedLiked
+                            ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                            : 'bg-neutral-800 text-neutral-400 border-neutral-700'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isSelectedLiked ? 'bg-rose-500 animate-pulse' : 'bg-neutral-500'
+                          }`}
+                        />
+                        {isSelectedLiked ? 'Лайкнуто (Червоне)' : 'Без лайка (Контур)'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCurrentLiked(true)}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition border ${
+                          isSelectedLiked
+                            ? 'bg-rose-600 text-white border-rose-500 shadow-md shadow-rose-900/30 font-semibold'
+                            : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border-neutral-700'
+                        }`}
+                      >
+                        <Heart size={14} className="fill-current text-white" />
+                        <span>❤️ Лайкнуто</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCurrentLiked(false)}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition border ${
+                          !isSelectedLiked
+                            ? 'bg-neutral-700 text-white border-neutral-500 shadow font-semibold'
+                            : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-400 border-neutral-700'
+                        }`}
+                      >
+                        <Heart size={14} className="stroke-current" />
+                        <span>🤍 Без лайка</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* 1. EXACT PIXEL DIMENSIONS (Width px & Height px with locked proportions) */}
               <div className="space-y-3 p-3.5 rounded-xl bg-neutral-800/50 border border-neutral-700/70">
                 <div className="flex items-center justify-between">
@@ -1532,6 +1611,36 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
                   className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:border-indigo-500"
                   placeholder="726 likes"
                 />
+              </div>
+
+              {/* Phone Heart / Like Toggle */}
+              <div className="flex items-center justify-between p-2.5 rounded-lg bg-neutral-800/60 border border-neutral-700/60">
+                <div className="flex items-center gap-2">
+                  <Heart
+                    size={14}
+                    className={sceneConfig.phoneIsLiked !== false ? 'text-rose-500 fill-rose-500' : 'text-neutral-400'}
+                  />
+                  <div>
+                    <span className="text-xs font-medium text-neutral-200 block">Сердечко на фото</span>
+                    <span className="text-[10px] text-neutral-400 block">Стан кнопки Like</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onChangeSceneConfig((prev) => ({
+                      ...prev,
+                      phoneIsLiked: prev.phoneIsLiked === false ? true : false,
+                    }))
+                  }
+                  className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition ${
+                    sceneConfig.phoneIsLiked !== false
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm'
+                      : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:text-white'
+                  }`}
+                >
+                  {sceneConfig.phoneIsLiked !== false ? '❤️ Лайкнуто' : '🤍 Без лайка'}
+                </button>
               </div>
 
               <div>

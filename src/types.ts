@@ -27,6 +27,7 @@ export interface CardSlot {
   transform: WidgetTransform;
   customText?: string;
   customAuthor?: string;
+  isLiked?: boolean; // True = red filled heart, False = gray outline
 }
 
 export type CanvasRatio = 'reference' | '1:1' | '4:5' | '5:4' | '16:9' | '9:16' | 'custom';
@@ -58,6 +59,7 @@ export interface SceneConfig {
   shadowIntensity: number; // 0.1 to 1.5
   shadowSoftness: number; // 5 to 60
   phoneTransform: WidgetTransform;
+  phoneIsLiked?: boolean; // True = red filled heart, False = gray outline (default: true)
   cards: CardSlot[];
   layerOrder: string[]; // Order of element IDs rendered from back to front
   profile: MockupProfile;
