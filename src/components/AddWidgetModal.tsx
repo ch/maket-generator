@@ -17,6 +17,14 @@ const WIDGET_TYPE_OPTIONS: Array<{
   icon: React.ReactNode;
 }> = [
   {
+    type: 'phone',
+    title: 'Смартфон (iPhone)',
+    sub: 'Реалістичний мокап iPhone з Dynamic Island, скляним екраном та стрічкою',
+    dim: '334 × 686 px',
+    tag: 'Смартфон',
+    icon: <Smartphone size={20} className="text-cyan-400" />,
+  },
+  {
     type: 'post',
     title: 'Instagram Пост',
     sub: 'Класична картка з фото, реакціями (лайки, коментарі) та шапкою профілю',

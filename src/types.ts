@@ -16,7 +16,7 @@ export interface MockupProfile {
   caption: string;
 }
 
-export type WidgetType = 'post' | 'story' | 'quote' | 'square';
+export type WidgetType = 'phone' | 'post' | 'story' | 'quote' | 'square';
 
 export interface CardSlot {
   id: string;

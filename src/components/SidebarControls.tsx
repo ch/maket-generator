@@ -563,10 +563,15 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
         {activeTab === 'widget' && (() => {
           const allSlotIds = ['phone', ...cards.map((c) => c.id)];
 
-          const effectiveLayerOrder =
-            sceneConfig.layerOrder && sceneConfig.layerOrder.length > 0
-              ? sceneConfig.layerOrder.filter((id) => allSlotIds.includes(id))
-              : allSlotIds;
+          const effectiveLayerOrder = (() => {
+            const current = sceneConfig.layerOrder || [];
+            const valid = current.filter((id) => allSlotIds.includes(id));
+            if (!valid.includes('phone')) valid.push('phone');
+            for (const id of allSlotIds) {
+              if (!valid.includes(id)) valid.push(id);
+            }
+            return valid;
+          })();
 
           const getSlotDetails = (id: string) => {
             if (id === 'phone') {
@@ -585,12 +590,14 @@ export const SidebarControls: React.FC<SidebarControlsProps> = ({
             const card = cards[idx];
             const dims = getWidgetBaseDimensions(card?.widgetType);
             const typeLabels: Record<string, string> = {
+              phone: 'Смартфон (iPhone)',
               post: 'Instagram Пост',
               story: 'Stories 9:16',
               quote: 'Відгук / Цитата',
               square: 'Квадрат 1:1',
             };
             const iconMap: Record<string, string> = {
+              phone: '📱',
               post: '📄',
               story: '📱',
               quote: '💬',

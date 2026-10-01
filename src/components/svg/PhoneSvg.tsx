@@ -15,6 +15,7 @@ import {
 } from './SvgIcons';
 
 interface PhoneSvgProps {
+  id?: string;
   transform: WidgetTransform;
   profile: MockupProfile;
   imageUrl: string | null;
@@ -28,6 +29,7 @@ export const PHONE_BASE_WIDTH = 334;
 export const PHONE_BASE_HEIGHT = 686;
 
 export const PhoneSvg: React.FC<PhoneSvgProps> = ({
+  id = 'main',
   transform,
   profile,
   imageUrl,
@@ -39,6 +41,8 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
   const { x, y, scale, rotation } = transform;
   const centerX = PHONE_BASE_WIDTH / 2;
   const centerY = PHONE_BASE_HEIGHT / 2;
+  const screenClipId = `phone-screen-clip-${id}`;
+  const photoClipId = `phone-photo-clip-${id}`;
 
   return (
     <g
@@ -47,10 +51,10 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
       className="group select-none"
     >
       <defs>
-        <clipPath id="phone-screen-clip">
+        <clipPath id={screenClipId}>
           <rect x="7" y="7" width="320" height="672" rx="42" />
         </clipPath>
-        <clipPath id="phone-photo-clip">
+        <clipPath id={photoClipId}>
           <rect x="18" y="118" width="298" height="414" rx="4" />
         </clipPath>
       </defs>
@@ -101,7 +105,7 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
       />
 
       {/* Phone Screen Canvas */}
-      <g clipPath="url(#phone-screen-clip)">
+      <g clipPath={`url(#${screenClipId})`}>
         {/* Screen Background */}
         <rect x="7" y="7" width="320" height="672" fill="#FFFFFF" />
 
@@ -213,7 +217,7 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
         {/* 4. Portrait 9:16 Photo Content Area */}
         <g onClick={onSelectSlot} className="cursor-pointer transition-opacity hover:opacity-95">
           {imageUrl ? (
-            <g clipPath="url(#phone-photo-clip)">
+            <g clipPath={`url(#${photoClipId})`}>
               <image
                 href={imageUrl}
                 x="18"
@@ -224,7 +228,7 @@ export const PhoneSvg: React.FC<PhoneSvgProps> = ({
               />
             </g>
           ) : (
-            <g clipPath="url(#phone-photo-clip)">
+            <g clipPath={`url(#${photoClipId})`}>
               <rect x="18" y="118" width="298" height="414" fill="#C2C6CA" />
               {/* Sharp Vector Typography Placeholder */}
               <text

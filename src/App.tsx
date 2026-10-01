@@ -252,7 +252,9 @@ export default function App() {
     const spawnY = Math.round(sceneConfig.height / 2 - baseDims.height / 2 + (offsetIndex - 2) * 35);
 
     const defaultTitle =
-      widgetType === 'post'
+      widgetType === 'phone'
+        ? 'Смартфон (iPhone)'
+        : widgetType === 'post'
         ? 'Instagram Пост'
         : widgetType === 'story'
         ? 'Stories 9:16'
@@ -279,10 +281,15 @@ export default function App() {
       },
     };
 
+    const currentLayerOrder =
+      sceneConfig.layerOrder && sceneConfig.layerOrder.length > 0
+        ? [...sceneConfig.layerOrder]
+        : ['card-1', 'card-2', 'card-3', 'card-4', 'phone'];
+
     const nextConfig: SceneConfig = {
       ...sceneConfig,
       cards: [...sceneConfig.cards, newCard],
-      layerOrder: [...sceneConfig.layerOrder, newId],
+      layerOrder: [...currentLayerOrder.filter((id) => id !== newId), newId],
     };
 
     setSceneConfig(nextConfig);

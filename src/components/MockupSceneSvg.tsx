@@ -240,57 +240,91 @@ export const MockupSceneSvg: React.FC<MockupSceneSvgProps> = ({
       {renderBackground()}
 
       {/* 2. Dynamic Layer-Ordered Widgets (rendered from back to front) */}
-      {(sceneConfig.layerOrder && sceneConfig.layerOrder.length === 5
-        ? sceneConfig.layerOrder
-        : ['card-1', 'card-2', 'card-3', 'card-4', 'phone']
-      ).map((slotId) => {
-        if (slotId === 'phone') {
+      {(() => {
+        const allCardIds = cards.map((c) => c.id);
+        const userOrder = sceneConfig.layerOrder || [];
+        const existingOrder = userOrder.filter((id) => id === 'phone' || allCardIds.includes(id));
+
+        if (!existingOrder.includes('phone')) {
+          existingOrder.push('phone');
+        }
+        for (const cid of allCardIds) {
+          if (!existingOrder.includes(cid)) {
+            existingOrder.push(cid);
+          }
+        }
+
+        return existingOrder.map((slotId) => {
+          if (slotId === 'phone') {
+            return (
+              <g
+                key="phone"
+                onPointerDown={(e) => handlePointerDown('phone', e)}
+                className="transition-opacity"
+              >
+                <PhoneSvg
+                  id="main"
+                  transform={phoneTransform}
+                  profile={profile}
+                  imageUrl={phoneImage}
+                  onSelectSlot={() => onSelectSlot('phone')}
+                  filterId={phoneFilterId}
+                  isInteractive={true}
+                  isSelected={selectedSlotId === 'phone'}
+                />
+              </g>
+            );
+          }
+
+          const cardIdx = cards.findIndex((c) => c.id === slotId);
+          const card = cards[cardIdx];
+          if (!card) return null;
+
+          if (card.widgetType === 'phone') {
+            return (
+              <g
+                key={card.id}
+                onPointerDown={(e) => handlePointerDown(card.id, e)}
+                className="transition-opacity"
+              >
+                <PhoneSvg
+                  id={card.id}
+                  transform={card.transform}
+                  profile={profile}
+                  imageUrl={card.imageUrl || phoneImage}
+                  onSelectSlot={() => onSelectSlot(card.id)}
+                  filterId={phoneFilterId}
+                  isInteractive={true}
+                  isSelected={selectedSlotId === card.id}
+                />
+              </g>
+            );
+          }
+
           return (
             <g
-              key="phone"
-              onPointerDown={(e) => handlePointerDown('phone', e)}
+              key={card.id}
+              onPointerDown={(e) => handlePointerDown(card.id, e)}
               className="transition-opacity"
             >
-              <PhoneSvg
-                transform={phoneTransform}
+              <PostCardSvg
+                id={card.id}
+                cardIndex={cardIdx + 1}
+                transform={card.transform}
                 profile={profile}
-                imageUrl={phoneImage}
-                onSelectSlot={() => onSelectSlot('phone')}
-                filterId={phoneFilterId}
-                isInteractive={true}
-                isSelected={selectedSlotId === 'phone'}
+                imageUrl={card.imageUrl}
+                placeholderText={card.placeholderText}
+                widgetType={card.widgetType}
+                customText={card.customText}
+                customAuthor={card.customAuthor}
+                onSelectSlot={() => onSelectSlot(card.id)}
+                filterId={cardFilterId}
+                isSelected={selectedSlotId === card.id}
               />
             </g>
           );
-        }
-
-        const cardIdx = cards.findIndex((c) => c.id === slotId);
-        const card = cards[cardIdx];
-        if (!card) return null;
-
-        return (
-          <g
-            key={card.id}
-            onPointerDown={(e) => handlePointerDown(card.id, e)}
-            className="transition-opacity"
-          >
-            <PostCardSvg
-              id={card.id}
-              cardIndex={cardIdx + 1}
-              transform={card.transform}
-              profile={profile}
-              imageUrl={card.imageUrl}
-              placeholderText={card.placeholderText}
-              widgetType={card.widgetType}
-              customText={card.customText}
-              customAuthor={card.customAuthor}
-              onSelectSlot={() => onSelectSlot(card.id)}
-              filterId={cardFilterId}
-              isSelected={selectedSlotId === card.id}
-            />
-          </g>
-        );
-      })}
+        });
+      })()}
     </svg>
   );
 };

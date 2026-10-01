@@ -29,6 +29,8 @@ export const CARD_BASE_HEIGHT = 396;
 
 export const getWidgetBaseDimensions = (type?: WidgetType): { width: number; height: number } => {
   switch (type) {
+    case 'phone':
+      return { width: 334, height: 686 };
     case 'story':
       return { width: 250, height: 444 };
     case 'quote':
